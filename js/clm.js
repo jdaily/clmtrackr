@@ -312,7 +312,10 @@ var clm = {
 		 *  TODO: should be able to take img element as well
 		 */
 		this.track = function(element, box) {
-			
+			var evt = document.createEvent("Event");
+			evt.initEvent("clmtrackrBeforeTrack", true, true);
+			document.dispatchEvent(evt)
+
 			var scaling, translateX, translateY, rotation;
 			var croppedPatches = [];
 			var ptch, px, py;
