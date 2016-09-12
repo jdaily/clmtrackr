@@ -19,6 +19,10 @@ module.exports = {
       {
         test: /\.json$/,
         loader: 'json-loader'
+      },
+      {
+        test: /\.worker\.js$/,
+        loader: 'worker-loader?inline=true'
       }
     ]
   }

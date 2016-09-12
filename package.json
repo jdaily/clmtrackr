@@ -5,7 +5,8 @@
   "scripts": {
     "build": "PROD_ENV=1 webpack --optimize-minimize --optimize-dedupe",
     "watch": "webpack --debug --devtool eval-cheap-module-source-map --output-pathinfo --progress --colors --watch",
-    "serve": "webpack-dev-server --debug --devtool eval-cheap-module-source-map --output-pathinfo --inline --hot --host localhost"
+    "serve": "webpack-dev-server --debug --devtool eval-cheap-module-source-map --output-pathinfo --inline --hot --host localhost",
+    "clean": "rm -rf dist"
   },
   "main": "clmtracker.js",
   "repository": {
@@ -22,10 +23,11 @@
     "stats.js": "0.0.14-master",
     "uglify": "^0.1.5",
     "webpack": "^1.13.2",
-    "webpack-dev-server": "^1.15.1"
+    "webpack-dev-server": "^1.15.1",
+    "worker-loader": "^0.7.1"
   },
   "dependencies": {
-    "jsfeat": "0.0.8",
+    "jsfeat": "git+https://github.com/inspirit/jsfeat#f584f93c78b5085ef141eb1dc66d9d06a7123ec3",
     "numeric": "^1.2.6"
   }
 }

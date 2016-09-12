@@ -1,17 +1,5 @@
 // simple wrapper for jsfeat face detector
-var findFaceWorker = require('./jsfeat_detect_worker.js');
-
-// Curtousy of stackoverflow this function
-Worker.createURL = function(func_or_string){
-  var str = (typeof func_or_string === 'function')?func_or_string.toString():func_or_string;
-  var blob = new Blob(['\'use strict\';\nself.onmessage ='+str], { type: 'text/javascript' });
-  return window.URL.createObjectURL(blob);
-};
-
-Worker.create = function(func_or_string){
-  return new Worker(Worker.createURL(func_or_string));
-};
-
+var findFaceWorker = require('./jsfeat_detect.worker');
 
 /**
  * this cascade is derived from https://github.com/mtschirs/js-objectdetect implementation
@@ -48,16 +36,21 @@ var jsfeat_face = function(image) {
     }
     var imageData = work_ctx.getImageData(0, 0, w, h);
 
-    var worker = Worker.create(findFaceWorker);
+    var worker = findFaceWorker();
 
     worker.addEventListener('message', function (e) {
+      if (e.data.type === 'console') {
+        console[e.data.func].apply(window, e.data.args);
+        return;
+      }
+
       this.faceDetected(e, callback);
     }.bind(this), false);
 
     worker.postMessage({
       w: w,
       h: h,
-      imageData:imageData
+      imageData: imageData
     });
   }
 
