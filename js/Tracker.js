@@ -1,27 +1,27 @@
 // 3rd party libs
-const numeric = require('numeric');
+import numeric from 'numeric';
 
 // libs
-const mosseFilter = require('./mosse.js');
-const mosseFilterResponses = require('./mossefilter.js');
-const jsfeat_face = require('./jsfeat_detect.js');
-const webglFilter = require('./svmfilter_webgl.js');
-const svmFilter = require('./svmfilter_fft.js');
+import mosseFilter from './utils/mosse.js';
+import mosseFilterResponses from './utils/mosseFilterResponses.js';
+import JsfeatFace from './jsfeat/JsfeatFace';
+import webglFilter from './svmfilter_webgl.js';
+import svmFilter from './svmfilter_fft.js';
 
 // filters
-const entire_face_filter = require('./filters/entire_face_filter.json');
-const left_eye_filter = require('./filters/left_eye_filter.json');
-const right_eye_filter = require('./filters/right_eye_filter.json');
-const nose_filter = require('./filters/nose_filter.json');
+import entire_face_filter from './filters/entire_face_filter.json';
+import left_eye_filter from './filters/left_eye_filter.json';
+import right_eye_filter from './filters/right_eye_filter.json';
+import nose_filter from './filters/nose_filter.json';
 
 
 import {
   requestAnimFrame,
   cancelRequestAnimFrame
   // drawData
-} from './canvasHelpers';
-import { gpopt, gpopt2 } from './meanshift';
-import procrustes from './procrustes';
+} from './utils/canvasHelpers';
+import { gpopt, gpopt2 } from './utils/meanshift';
+import procrustes from './utils/procrustes';
 
 
 const halfPI = Math.PI / 2;
@@ -392,7 +392,7 @@ export default class Tracker {
       // do viola-jones on canvas to get initial guess, if we don't have any points
       if (!this.gettingPosition) {
         this.gettingPosition = true;
-        this._getInitialPosition(element, box, function (gi) {
+        this._getInitialPosition(element, box, (gi) => {
           this.gettingPosition = false;
           if (!gi) {
             // send an event on no face found
@@ -406,7 +406,7 @@ export default class Tracker {
             this.track(element, box, gi);
           }
 
-        }.bind(this));
+        });
       }
       return;
     } else {
@@ -993,7 +993,7 @@ export default class Tracker {
     var cc = canvas.getContext('2d');
     cc.drawImage(el, 0, 0, el.width, el.height);
 
-    var jf = new jsfeat_face(canvas);
+    var jf = new JsfeatFace(canvas);
     jf.faceDetected = this._faceDetected.bind(this);
     //TODO Allow option that limit simultaneous trigger of WebWorkers
     var comp = jf.findFace(callback);
