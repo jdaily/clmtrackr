@@ -1,6 +1,5 @@
 // simple wrapper for jsfeat face detector
-var jsfeat = require('jsfeat');
-var findFaceWorker = require('./jsfeat_detect_worker');
+var findFaceWorker = require('./jsfeat_detect_worker.js');
 
 // Curtousy of stackoverflow this function
 Worker.createURL = function(func_or_string){
@@ -22,7 +21,7 @@ var frontalface = require('./filters/frontalface.json');
 
 var jsfeat_face = function(image) {
 
-  var img_u8,work_canvas,work_ctx,ii_sum,ii_sqsum,ii_tilted,edg;
+  var work_canvas, work_ctx;
 
   var w = image.width;
   var h = image.height;

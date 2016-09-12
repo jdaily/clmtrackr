@@ -3,7 +3,9 @@
   "version": "0.0.1",
   "description": "Javascript library for precise tracking of facial features via Constrained Local Models",
   "scripts": {
-    "build": "browserify js/index.js -s clm -o ./clmtrackr.js; uglifyjs ./clmtrackr.js -m -r 'clm,clmtrackr' -o ./clmtrackr.min.js"
+    "build": "PROD_ENV=1 webpack --optimize-minimize --optimize-dedupe",
+    "watch": "webpack --debug --devtool eval-cheap-module-source-map --output-pathinfo --progress --colors --watch",
+    "serve": "webpack-dev-server --debug --devtool eval-cheap-module-source-map --output-pathinfo --inline --hot --host localhost"
   },
   "main": "clmtracker.js",
   "repository": {
@@ -11,14 +13,16 @@
     "url": "https://github.com/auduno/clmtrackr.git"
   },
   "devDependencies": {
-    "browserify": "^13.0.0",
-    "getusermedia": "^1.3.5",
-    "exdat": "^0.6.2",
     "blob.js": "andyinabox/Blob.js",
+    "exdat": "^0.6.2",
     "filesaver.js": "andyinabox/FileSaver.js",
-    "uglify": "^0.1.5",
+    "getusermedia": "^1.3.5",
+    "json-loader": "^0.5.4",
     "raf": "^3.1.0",
-    "stats.js": "0.0.14-master"
+    "stats.js": "0.0.14-master",
+    "uglify": "^0.1.5",
+    "webpack": "^1.13.2",
+    "webpack-dev-server": "^1.15.1"
   },
   "dependencies": {
     "jsfeat": "0.0.8",
