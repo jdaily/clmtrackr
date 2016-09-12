@@ -1,5 +1,19 @@
 // simple wrapper for jsfeat face detector
 var jsfeat = require('jsfeat');
+var findFaceWorker = require('./jsfeat_detect_worker');
+
+// Curtousy of stackoverflow this function
+Worker.createURL = function(func_or_string){
+  var str = (typeof func_or_string === 'function')?func_or_string.toString():func_or_string;
+  var blob = new Blob(['\'use strict\';\nself.onmessage ='+str], { type: 'text/javascript' });
+  return window.URL.createObjectURL(blob);
+};
+
+Worker.create = function(func_or_string){
+  return new Worker(Worker.createURL(func_or_string));
+};
+
+
 /**
  * this cascade is derived from https://github.com/mtschirs/js-objectdetect implementation
  * @author Martin Tschirsich / http://www.tu-darmstadt.de/~m_t
@@ -22,44 +36,30 @@ var jsfeat_face = function(image) {
     work_ctx = image.getContext('2d');
   }
 
-  img_u8 = new jsfeat.matrix_t(w, h, jsfeat.U8_t | jsfeat.C1_t);
-  ii_sum = new Int32Array((w+1)*(h+1));
-  ii_sqsum = new Int32Array((w+1)*(h+1));
-  ii_tilted = new Int32Array((w+1)*(h+1));
+  // img_u8 = new jsfeat.matrix_t(w, h, jsfeat.U8_t | jsfeat.C1_t);
+  // ii_sum = new Int32Array((w+1)*(h+1));
+  // ii_sqsum = new Int32Array((w+1)*(h+1));
+  // ii_tilted = new Int32Array((w+1)*(h+1));
 
-  var classifier = frontalface;
+  // var classifier = frontalface;
 
-  this.findFace = function () {
+  this.findFace = function (callback) {
     if (image.tagName == 'VIDEO' || image.tagName == 'IMG') {
       work_ctx.drawImage(image, 0, 0);
     }
     var imageData = work_ctx.getImageData(0, 0, w, h);
 
-    jsfeat.imgproc.grayscale(imageData.data, w, h, img_u8);
+    var worker = Worker.create(findFaceWorker);
 
-    jsfeat.imgproc.equalize_histogram(img_u8, img_u8);
+    worker.addEventListener('message', function (e) {
+      this.faceDetected(e, callback);
+    }.bind(this), false);
 
-    jsfeat.imgproc.compute_integral_image(img_u8, ii_sum, ii_sqsum, null);
-
-    var rects = jsfeat.haar.detect_multi_scale(ii_sum, ii_sqsum, ii_tilted, null, img_u8.cols, img_u8.rows, classifier, 1.15, 2);
-
-    rects = jsfeat.haar.group_rectangles(rects, 1);
-
-    var rl = rects.length;
-
-    if (rl > 0) {
-      var best = rects[0];
-      for (var i = 1;i < rl;i++) {
-          if (rects[i].neighbors > best.neighbors) {
-              best = rects[i]
-          } else if (rects[i].neighbors == best.neighbors) {
-              if (rects[i].confidence > best.confidence) best = rects[i];
-          }
-      }
-      return [best];
-    } else {
-      return false;
-    }
+    worker.postMessage({
+      w: w,
+      h: h,
+      imageData:imageData
+    });
   }
 
 }
