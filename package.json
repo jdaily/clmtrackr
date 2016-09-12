@@ -3,10 +3,11 @@
   "version": "0.0.1",
   "description": "Javascript library for precise tracking of facial features via Constrained Local Models",
   "scripts": {
-    "build": "PROD_ENV=1 webpack --optimize-minimize --optimize-dedupe",
+    "build": "webpack --optimize-minimize --optimize-dedupe",
     "watch": "webpack --debug --devtool eval-cheap-module-source-map --output-pathinfo --progress --colors --watch",
     "serve": "webpack-dev-server --debug --devtool eval-cheap-module-source-map --output-pathinfo --inline --hot --host localhost",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "postinstall": "npm run build"
   },
   "main": "dist/clmtracker.js",
   "repository": {

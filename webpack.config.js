@@ -1,14 +1,12 @@
 'use strict';
 const path = require('path');
 
-const PROD = JSON.parse(process.env.PROD_ENV || '0');
-
 module.exports = {
   entry: {
     clmtrackr: './js/index.js'
   },
   output: {
-    filename: PROD ? '[name].min.js' : '[name].js',
+    filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
     publicPath: '/dist/',
     libraryTarget: 'umd',
