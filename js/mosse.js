@@ -11,10 +11,10 @@
  *     if this is set to false, we assume all channels are equal and only grab values from red channel
  *
  * @author auduno / github.com/auduno
- */ 
+ */
 
 function mosseFilter(params) {
-    
+
     var _filter, _top, _bottom;
     var _fft;
     var _w,_h;
@@ -22,12 +22,12 @@ function mosseFilter(params) {
     var _arrlen;
     var _cc;
     var _image_array;
-    
+
     this.psr_prev = undefined;
     this.peak_prev = undefined;
     var peak = 0.0;
     var updateable = false;
-    
+
     if (!params) params = {};
     // setup of canvas for drawing responses, if given
     if (params.drawResponse === undefined) {
@@ -42,7 +42,7 @@ function mosseFilter(params) {
     if (params.psrThreshold === undefined) params.psrThreshold = 10;
     if (params.eta === undefined) params.eta = 0.10;
     if (params.convertToGrayscale === undefined) params.convertToGrayscale = true;
-    
+
     this.load = function(filter) {
         // initialize filter width and height
         _w = filter.width;
@@ -55,11 +55,11 @@ function mosseFilter(params) {
           _top = [filter.top.real, filter.top.imag];
           _bottom = [filter.bottom.real, filter.bottom.imag];
         }
-        
+
         // initialize fft to given width
         _fft = new FFT();
         _fft.init(filter.width);
-        
+
         // set up temporary variables
         if(typeof Float64Array !== 'undefined') {
             _im_part = new Float64Array(_arrlen);
@@ -73,13 +73,13 @@ function mosseFilter(params) {
         canvas.setAttribute('height', _h);
         _cc = canvas.getContext('2d');
     }
-    
+
     this.init = function(w,h) {
         // initialize filter width and height for a blank filter
         _w = w;
         _h = h;
         _arrlen = _w*_h;
-        
+
         _filter = [[],[]];
         _top = [[],[]];
         _bottom = [[],[]];
@@ -92,11 +92,11 @@ function mosseFilter(params) {
             _bottom[1][i] = 0;
         }
         updateable = true;
-        
+
         // initialize fft to given width
         _fft = new FFT();
         _fft.init(w);
-        
+
         // set up temporary variables
         if(typeof Float64Array !== 'undefined') {
             _im_part = new Float64Array(_arrlen);
@@ -108,32 +108,32 @@ function mosseFilter(params) {
         canvas.setAttribute('height', _h);
         _cc = canvas.getContext('2d');
     }
-    
+
     // fft function
     this.fft = function(array) {
         // not in-place
-        
+
         var cn = new Array(_arrlen);
         for (var i = 0;i < _arrlen;i++) {
           cn[i] = 0.0;
         }
-        
+
         _fft.fft2d(array,cn)
         return [array, cn];
     }
-    
+
     // fft function
     this.fft_inplace = function(array) {
         // in-place
-        
+
         for (var i = 0;i < _arrlen;i++) {
           _im_part[i] = 0.0;
         }
-        
+
         _fft.fft2d(array,_im_part)
         return [array, _im_part];
     }
-    
+
     this.ifft = function(rn, cn) {
         // in-place
         _fft.ifft2d(rn, cn);
@@ -159,7 +159,7 @@ function mosseFilter(params) {
                 }
             }
         }
-        
+
         // subtract values around peak
         for (var x = -5;x < 6;x++) {
             for (var y = -5;y < 6;y++) {
@@ -170,41 +170,41 @@ function mosseFilter(params) {
                 }
             }
         }
-        
+
         var mean = sum/array.length;
         var sd = Math.sqrt((sdo/array.length)-(mean*mean));
-        
+
         // get mean/variance of output around peak
         var psr = (max-mean)/sd;
         return psr;
     }
-    
+
     this.getResponse = function(imageData) {
         // in-place
-        
+
         // preprocess
         var prepImage = preprocess(imageData);
         prepImage = cosine_window(prepImage);
-        
+
         // filter
         var res = this.fft_inplace(prepImage);
-        
+
         // elementwise multiplication with filter
         complex_mult_inplace(res, _filter);
-        
+
         // do inverse 2d fft
         var filtered = this.ifft(res[0],res[1]);
         return filtered;
     }
-    
+
     this.track = function(input, left, top, width, height, updateFilter, gaussianPrior, calcPSR) {
         // finds position of filter in input image
-        
+
         if (!_filter) {
             console.log("Mosse-filter needs to be initialized or trained before starting tracking.");
             return false;
         }
-        
+
         if (input.tagName == "VIDEO" || input.tagName == "IMG") {
             // scale selection according to original source image
             var videoLeft = Math.round((left/input.width)*input.videoWidth);
@@ -215,40 +215,40 @@ function mosseFilter(params) {
         } else if (input.tagName == "CANVAS") {
             _cc.drawImage(input, left, top, width, height, 0, 0, _w, _h);
         }
-        
+
         var image = _cc.getImageData(0,0,_w,_h);
         var id = image.data;
-        
+
         if (params.convertToGrayscale) {
             // convert to grayscale
             for (var i = 0;i < _arrlen;i++) {
                 _image_array[i] = id[(4*i)]*0.3;
                 _image_array[i] += id[(4*i)+1]*0.59;
                 _image_array[i] += id[(4*i)+2]*0.11;
-            } 
+            }
         } else {
             // use only one channel
             for (var i = 0;i < _arrlen;i++) {
                 _image_array[i] = id[(4*i)];
-            } 
+            }
         }
-        
+
         // preprocess
         var prepImage = preprocess(_image_array);
         prepImage = cosine_window(prepImage);
-        
+
         // filter
         var res = this.fft_inplace(prepImage);
         // elementwise multiplication with filter
         var nures = complex_mult(res, _filter);
         // do inverse 2d fft
         var filtered = this.ifft(nures[0],nures[1]);
-        
+
         // find max and min
         var max = 0;
         var min = 0;
         var maxpos = [];
-        
+
         //method using centered gaussian prior
         if (gaussianPrior) {
             var prior, dx, dy;
@@ -281,7 +281,7 @@ function mosseFilter(params) {
             }
         }
         this.peak_prev = max;
-        
+
         if (params.drawResponse) {
             // draw response
             var diff = max-min;
@@ -304,11 +304,11 @@ function mosseFilter(params) {
             dcc.putImageData(psci, 0, 0);
             responseContext.drawImage(dc, left, top, width, width);
         }
-        
+
         if (calcPSR) {
           this.psr_prev = this.psr(filtered);
         }
-        
+
         if (updateFilter) {
             if (!updateable) {
                 console.log("The loaded filter does not support updating. Ignoring parameter 'updateFilter'.");
@@ -318,7 +318,7 @@ function mosseFilter(params) {
                 } else {
                   var psr = this.psr(filtered);
                 }
-                
+
                 if (psr > params.psrThreshold) {
                     // create target
                     var target = [];
@@ -329,15 +329,15 @@ function mosseFilter(params) {
                             target[(y*_w)+x] = Math.exp(-(((x-nux)*(x-nux))+((y-nuy)*(y-nuy)))/(2*2));
                         }
                     }
-                    
+
                     //fft target
                     target = this.fft(target);
-                    
+
                     // create filter
                     var res_conj = complex_conj(res);
                     var fuTop = complex_mult(target,res_conj);
                     var fuBottom = complex_mult(res,res_conj);
-                    
+
                     // add up
                     var eta = params.eta;
                     for (var i = 0;i < _arrlen;i++) {
@@ -346,19 +346,19 @@ function mosseFilter(params) {
                         _bottom[0][i] = eta*fuBottom[0][i] + (1-eta)*_bottom[0][i];
                         _bottom[1][i] = eta*fuBottom[1][i] + (1-eta)*_bottom[1][i];
                     }
-                    
+
                     _filter = complex_div(_top,_bottom);
                 }
             }
         }
-        
+
         /*if (psr < 5) {
-          maxpos = [_w/2,_h/2]; 
+          maxpos = [_w/2,_h/2];
         }*/
-        
+
         maxpos[0] = maxpos[0]*(width/_w);
         maxpos[1] = maxpos[1]*(width/_h);
-        
+
         // check if output is strong enough
         // if not, return false?
         if (max < 0) {
@@ -367,14 +367,14 @@ function mosseFilter(params) {
           return maxpos;
         }
     }
-    
+
     this.train = function(input, left, top, width, height) {
-        
+
         if (!updateable) {
           console.log("The loaded filter does not support updating. Unable to do training.");
           return false;
         }
-        
+
         if (input.tagName == "VIDEO" || input.tagName == "IMG") {
             // scale selection according to original source image
             var videoLeft = Math.round((left/input.width)*input.videoWidth);
@@ -385,21 +385,21 @@ function mosseFilter(params) {
         } else if (input.tagName == "CANVAS") {
             _cc.drawImage(input, left, top, width, height, 0, 0, _w, _h);
         }
-        
+
         var image = _cc.getImageData(0,0,_w,_h);
         var id = image.data;
-         
+
         // convert to grayscale
         for (var i = 0;i < _arrlen;i++) {
             _image_array[i] = id[(4*i)]*0.3;
             _image_array[i] += id[(4*i)+1]*0.59;
             _image_array[i] += id[(4*i)+2]*0.11;
         }
-        
+
         // preprocess
         var prepImage = preprocess(_image_array);
         prepImage = cosine_window(prepImage);
-        
+
         // create target
         var target = [];
         var nux = _w/2;
@@ -409,17 +409,17 @@ function mosseFilter(params) {
                 target[(y*_w)+x] = Math.exp(-(((x-nux)*(x-nux))+((y-nuy)*(y-nuy)))/(2*2));
             }
         }
-        
+
         //fft target
         target = this.fft(target);
-        
+
         // filter
         var res = this.fft(prepImage);
         // create filter
         var res_conj = complex_conj(res);
         var fuTop = complex_mult(target,res_conj);
         var fuBottom = complex_mult(res,res_conj);
-        
+
         // add up
         var eta = params.eta;
         for (var i = 0;i < _arrlen;i++) {
@@ -428,27 +428,27 @@ function mosseFilter(params) {
             _bottom[0][i] = eta*fuBottom[0][i] + (1-eta)*_bottom[0][i];
             _bottom[1][i] = eta*fuBottom[1][i] + (1-eta)*_bottom[1][i];
         }
-        
+
         _filter = complex_div(_top,_bottom);
-        
+
         return true;
     }
-    
+
     var preprocess = function(array) {
         // in-place
-        
+
         // log adjusting
         for (var i = 0;i < _arrlen;i++) {
           array[i] = Math.log(array[i]+1);
         }
-        
+
         // normalize to mean 0 and norm 1
         var mean = 0;
         for (var i = 0;i < _arrlen;i++) {
           mean += array[i];
         }
         mean /= _arrlen;
-        
+
         for (var i = 0;i < _arrlen;i++) {
           array[i] -= mean;
         }
@@ -460,10 +460,10 @@ function mosseFilter(params) {
         for (var i = 0;i < _arrlen;i++) {
           array[i] /= norm;
         }
-        
+
         return array;
     }
-    
+
     var cosine_window = function(array) {
         // calculate rect cosine window (in-place)
         var pos = 0;
@@ -476,10 +476,10 @@ function mosseFilter(params) {
                 pos++;
             }
         }
-        
+
         return array;
     }
-    
+
     var complex_mult = function(cn1, cn2) {
         // not in-place
         var re_part = new Array(_w);
@@ -491,7 +491,7 @@ function mosseFilter(params) {
         }
         return nucn;
     }
-    
+
     var complex_mult_inplace = function(cn1, cn2) {
         // in-place
         var temp1, temp2;
@@ -502,7 +502,7 @@ function mosseFilter(params) {
             cn1[1][r] = temp2;
         }
     }
-    
+
     var complex_conj = function(cn) {
         // not in-place (TODO)
         var nucn = [[],[]];
@@ -512,7 +512,7 @@ function mosseFilter(params) {
         }
         return nucn;
     }
-    
+
     var complex_div = function(cn1, cn2) {
         // not in-place (TODO)
         var nucn = [[],[]];
@@ -527,18 +527,18 @@ function mosseFilter(params) {
 /**
  * Fast Fourier Transform
  * 1D-FFT/IFFT, 2D-FFT/IFFT (radix-2)
- * 
+ *
  * @author ryo / github.com/wellflat
  * Based on https://github.com/wellflat/jslib with some tiny optimizations
  */
 
 function FFT() {
-  
+
   var _n = 0,          // order
       _bitrev = null,  // bit reversal table
       _cstb = null;    // sin/cos table
   var _tre, _tim;
-  
+
   this.init = function (n) {
     if(n !== 0 && (n & (n - 1)) === 0) {
       _n = n;
@@ -549,12 +549,12 @@ function FFT() {
       throw new Error("init: radix-2 required");
     }
   }
-    
+
   // 1D-FFT
   this.fft1d = function (re, im) {
     fft(re, im, 1);
   }
-    
+
   // 1D-IFFT
   this.ifft1d = function (re, im) {
     var n = 1/_n;
@@ -564,7 +564,7 @@ function FFT() {
       im[i] *= n;
     }
   }
-  
+
   // 2D-FFT
   this.fft2d = function (re, im) {
     var i = 0;
@@ -596,7 +596,7 @@ function FFT() {
       }
     }
   }
-  
+
   // 2D-IFFT
   this.ifft2d = function (re, im) {
     var i = 0;
@@ -628,7 +628,7 @@ function FFT() {
       }
     }
   }
-  
+
   // core operation of FFT
   function fft(re, im, inv) {
     var d, h, ik, m, tmp, wr, wi, xr, xi,
@@ -665,7 +665,7 @@ function FFT() {
       }
     }
   }
-  
+
   // set variables
   function _setVariables() {
     if(typeof Uint8Array !== 'undefined') {
@@ -683,7 +683,7 @@ function FFT() {
       _tim = new Array(_n*_n);
     }
   }
-  
+
   // make bit reversal table
   function _makeBitReversal() {
     var i = 0,
@@ -700,7 +700,7 @@ function FFT() {
       _bitrev[i] = j;
     }
   }
-  
+
   // make trigonometric function table
   function _makeCosSinTable() {
     var n2 = _n >> 1,

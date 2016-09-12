@@ -12,7 +12,7 @@
 				margin: 0px auto;
 				max-width: 1150px;
 			}
-			
+
 			#overlay {
 				position: absolute;
 				top: 0px;
@@ -32,11 +32,11 @@
 				margin-right : 100px;
 				max-width: 950px;
 			}
-			
+
 			#sketch {
 				display: none;
 			}
-			
+
 			#filter {
 				display: none;
 			}
@@ -79,7 +79,7 @@
 		<script src="./ext_js/jquery.imgareaselect.pack.js"></script>
 		<script src="../node_modules/blob.js/Blob.js"></script>
 		<script src="../node_modules/filesaver.js/FileSaver.min.js"></script>
-	
+
 		<link rel="stylesheet" type="text/css" href="./styles/imgareaselect-default.css" />
 
 		<div id="content">
@@ -104,23 +104,23 @@
 				var cc = document.getElementById('image').getContext('2d');
 				var overlay = document.getElementById('overlay');
 				var overlayCC = overlay.getContext('2d');
-			
+
 				var img = new Image();
 				img.onload = function() {
 					cc.drawImage(img,0,0,625, 500);
 				};
 				img.src = './media/franck_02159.jpg';
-			
+
 				var ctrack = new clm.tracker({stopOnConvergence : true});
 				ctrack.init(pModel);
-			
+
 				stats = new Stats();
 				stats.domElement.style.position = 'absolute';
 				stats.domElement.style.top = '0px';
 				document.getElementById('container').appendChild( stats.domElement );
-				
+
 				var drawRequest;
-				
+
 				function animateClean() {
 					ctrack.start(document.getElementById('image'));
 					drawLoop();
@@ -130,7 +130,7 @@
 					ctrack.start(document.getElementById('image'), box);
 					drawLoop();
 				}
-				
+
 				function drawLoop() {
 					drawRequest = requestAnimFrame(drawLoop);
 					overlayCC.clearRect(0, 0, 720, 576);
@@ -138,19 +138,19 @@
 						ctrack.draw(overlay);
 					}
 				}
-				
+
 				// detect if tracker fails to find a face
 				document.addEventListener("clmtrackrNotFound", function(event) {
 					ctrack.stop();
 					alert("The tracking had problems with finding a face in this image. Try selecting the face in the image manually.")
 				}, false);
-				
+
 				// detect if tracker loses tracking of face
 				document.addEventListener("clmtrackrLost", function(event) {
 					ctrack.stop();
 					alert("The tracking had problems converging on a face in this image. Try selecting the face in the image manually.")
 				}, false);
-				
+
 				// detect if tracker has converged
 				document.addEventListener("clmtrackrConverged", function(event) {
 					document.getElementById('convergence').innerHTML = "CONVERGED";
@@ -158,7 +158,7 @@
 					// stop drawloop
 					cancelRequestAnimFrame(drawRequest);
 				}, false);
-				
+
 				// update stats on iteration
 				document.addEventListener("clmtrackrIteration", function(event) {
 					stats.update();
@@ -175,7 +175,7 @@
 						onSelectEnd : function(img, selection) {
 							// create box
 							var box = [selection.x1, selection.y1, selection.width, selection.height];
-							
+
 							// do fitting
 							animate(box);
 							$('#overlay').removeClass('hide');
@@ -191,7 +191,7 @@
 						reader.onload = (function(theFile) {
 							return function(e) {
 								// check if positions already exist in storage
-							
+
 								// Render thumbnail.
 								var canvas = document.getElementById('image')
 								var cc = canvas.getContext('2d');
@@ -240,7 +240,7 @@
 						if (files.length > 0) {
 							fileIndex = 0;
 						}
-						
+
 						loadImage();
 					}
 					document.getElementById('files').addEventListener('change', handleFileSelect, false);

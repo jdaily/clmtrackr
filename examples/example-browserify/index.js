@@ -15,7 +15,7 @@ var cc = canvas.getContext('2d');
 
 function setup() {
 	video.play();
-		
+
 	document.body.appendChild(canvas);
 
 	tracker.init(model);
