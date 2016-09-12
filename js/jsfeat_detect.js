@@ -30,13 +30,13 @@ var jsfeat_face = function(image) {
 
   // var classifier = frontalface;
 
+  var worker = findFaceWorker();
+
   this.findFace = function (callback) {
     if (image.tagName == 'VIDEO' || image.tagName == 'IMG') {
       work_ctx.drawImage(image, 0, 0);
     }
     var imageData = work_ctx.getImageData(0, 0, w, h);
-
-    var worker = findFaceWorker();
 
     worker.addEventListener('message', function (e) {
       if (e.data.type === 'console') {

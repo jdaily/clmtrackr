@@ -23,6 +23,15 @@ module.exports = {
       {
         test: /\.worker\.js$/,
         loader: 'worker-loader?inline=true'
+      },
+      {
+        test: /\.js$/,
+        loader: 'babel-loader',
+        // include: path.join(__dirname, 'src'),
+        exclude: /(node_modules)/,
+        query: {
+          presets: ['es2015']
+        }
       }
     ]
   }

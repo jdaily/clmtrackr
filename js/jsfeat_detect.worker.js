@@ -36,7 +36,7 @@ onmessage = function(e) {
 
     var rl = rects.length;
 
-    console.timeEnd('findFace');
+    // console.timeEnd('findFace');
     if (rl > 0) {
       var best = rects[0];
       for (var i = 1;i < rl;i++) {
