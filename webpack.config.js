@@ -9,7 +9,8 @@ module.exports = {
   },
   output: {
     filename: PROD ? '[name].min.js' : '[name].js',
-    path: path.resolve(__dirname),
+    path: path.resolve(__dirname, 'dist'),
+    publicPath: '/dist/',
     libraryTarget: 'umd',
     library: 'clm'
   },
