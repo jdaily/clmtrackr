@@ -329,6 +329,7 @@ var webglFilter = function() {
     canvas.setAttribute('height', ((patchHeight-filterHeight+1)*numPatches)+"px");
     canvas.setAttribute('id', 'renderCanvas');
     canvas.setAttribute('style', 'display:none;');
+    // FIXME: dont litter the DOM with render canvases
     document.body.appendChild(canvas);
     // TODO : isolate this library from webgl-util.js
     gl = setupWebGL(canvas, {premultipliedAlpha: false, preserveDrawingBuffer : true, antialias : false});

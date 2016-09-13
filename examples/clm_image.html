@@ -140,29 +140,29 @@
 				}
 
 				// detect if tracker fails to find a face
-				document.addEventListener("clmtrackrNotFound", function(event) {
+				ctrack.on("notFound", function(event) {
 					ctrack.stop();
 					alert("The tracking had problems with finding a face in this image. Try selecting the face in the image manually.")
-				}, false);
+				});
 
 				// detect if tracker loses tracking of face
-				document.addEventListener("clmtrackrLost", function(event) {
+				ctrack.on("lost", function(event) {
 					ctrack.stop();
 					alert("The tracking had problems converging on a face in this image. Try selecting the face in the image manually.")
-				}, false);
+				});
 
 				// detect if tracker has converged
-				document.addEventListener("clmtrackrConverged", function(event) {
+				ctrack.on("converged", function(event) {
 					document.getElementById('convergence').innerHTML = "CONVERGED";
 					document.getElementById('convergence').style.backgroundColor = "#00FF00";
 					// stop drawloop
 					cancelRequestAnimFrame(drawRequest);
-				}, false);
+				});
 
 				// update stats on iteration
-				document.addEventListener("clmtrackrIteration", function(event) {
+				ctrack.on("iteration", function(event) {
 					stats.update();
-				}, false);
+				});
 
 				// manual selection of faces (with jquery imgareaselect plugin)
 				function selectBox() {

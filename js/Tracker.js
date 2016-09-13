@@ -1,3 +1,5 @@
+import EventEmitter from 'events';
+
 // 3rd party libs
 import numeric from 'numeric';
 
@@ -27,8 +29,10 @@ import procrustes from './utils/procrustes';
 const halfPI = Math.PI / 2;
 
 
-export default class Tracker {
+export default class Tracker extends EventEmitter {
   constructor (params) {
+    super();
+
     if (!params) params = {};
     if (params.constantVelocity === undefined) params.constantVelocity = true;
     if (params.searchWindow === undefined) params.searchWindow = 11;
@@ -372,9 +376,7 @@ export default class Tracker {
    *  TODO: should be able to take img element as well
    */
   track (element, box, gi) {
-    var evt = document.createEvent("Event");
-    evt.initEvent("clmtrackrBeforeTrack", true, true);
-    document.dispatchEvent(evt)
+    this.emit('beforeTrack');
 
     var scaling, translateX, translateY, rotation;
     var croppedPatches = [];
@@ -396,16 +398,13 @@ export default class Tracker {
           this.gettingPosition = false;
           if (!gi) {
             // send an event on no face found
-            var evt = document.createEvent("Event");
-            evt.initEvent("clmtrackrNotFound", true, true);
-            document.dispatchEvent(evt);
+            this.emit('notFound');
             this.first = true;
 
             return false;
           } else {
             this.track(element, box, gi);
           }
-
         });
       }
       return;
@@ -460,9 +459,7 @@ export default class Tracker {
         }
 
         // send event to signal that tracking was lost
-        var evt = document.createEvent("Event");
-        evt.initEvent("clmtrackrLost", true, true);
-        document.dispatchEvent(evt);
+        this.emit('lost');
 
         return false;
       }
@@ -542,13 +539,11 @@ export default class Tracker {
     var meanshiftVectors = [];
 
     for (var i = 0; i < this.varianceSeq.length; i++) {
-
       // calculate jacobian
       jac = this._createJacobian(this.currentParameters, this.eigenVectors);
 
       // for debugging
       //var debugMVs = [];
-      //
 
       var opj0, opj1;
 
@@ -597,44 +592,57 @@ export default class Tracker {
       }*/
 
       var meanShiftVector = numeric.rep([this.numPatches*2, 1],0.0);
-      for (var k = 0;k < this.numPatches;k++) {
+      for (let k = 0;k < this.numPatches;k++) {
         meanShiftVector[k*2][0] = meanshiftVectors[k][0];
         meanShiftVector[(k*2)+1][0] = meanshiftVectors[k][1];
       }
 
       // compute pdm parameter update
-      //var prior = numeric.mul(gaussianPD, PDMVariance);
+      // var prior = numeric.mul(this.gaussianPD, this.PDMVariance);
       var prior = numeric.mul(this.gaussianPD, this.varianceSeq[i]);
+      let jtj;
       if (this.params.weightPoints) {
-        var jtj = numeric.dot(numeric.transpose(jac), numeric.dot(this.pointWeights, jac));
+        jtj = numeric.dot(numeric.transpose(jac), numeric.dot(this.pointWeights, jac));
       } else {
-        var jtj = numeric.dot(numeric.transpose(jac), jac);
+        jtj = numeric.dot(numeric.transpose(jac), jac);
       }
       var cpMatrix = numeric.rep([this.numParameters+4, 1],0.0);
-      for (var l = 0;l < (this.numParameters+4);l++) {
+      for (let l = 0;l < (this.numParameters+4);l++) {
         cpMatrix[l][0] = this.currentParameters[l];
       }
       var priorP = numeric.dot(prior, cpMatrix);
+      let jtv;
       if (this.params.weightPoints) {
-        var jtv = numeric.dot(numeric.transpose(jac), numeric.dot(this.pointWeights, meanShiftVector));
+        jtv = numeric.dot(numeric.transpose(jac), numeric.dot(this.pointWeights, meanShiftVector));
       } else {
-        var jtv = numeric.dot(numeric.transpose(jac), meanShiftVector);
+        jtv = numeric.dot(numeric.transpose(jac), meanShiftVector);
       }
       var paramUpdateLeft = numeric.add(prior, jtj);
       var paramUpdateRight = numeric.sub(priorP, jtv);
+
+      let paramUpdateLeftDet = numeric.det(paramUpdateLeft);
+      if (paramUpdateLeftDet === 0) {
+        console.warn(paramUpdateLeft);
+        throw new Error('paramUpdateLeft is singular (determinate == 0), cannot invert');
+      }
+      if (isNaN(paramUpdateLeftDet)) {
+        console.warn(paramUpdateLeft);
+        throw new Error('paramUpdateLeft has invalid determinate (NaN)');
+      }
+
       var paramUpdate = numeric.dot(numeric.inv(paramUpdateLeft), paramUpdateRight);
       //var paramUpdate = numeric.solve(paramUpdateLeft, paramUpdateRight, true);
 
       var oldPositions = this.currentPositions;
 
       // update estimated parameters
-      for (var k = 0;k < this.numParameters+4;k++) {
+      for (let k = 0;k < this.numParameters+4;k++) {
         this.currentParameters[k] -= paramUpdate[k];
       }
 
       // clipping of parameters if they're too high
       var clip;
-      for (var k = 0;k < this.numParameters;k++) {
+      for (let k = 0;k < this.numParameters;k++) {
         clip = Math.abs(3*Math.sqrt(this.eigenValues[k]));
         if (Math.abs(this.currentParameters[k+4]) > clip) {
           if (this.currentParameters[k+4] > 0) {
@@ -678,9 +686,7 @@ export default class Tracker {
     this.previousPositions.push(this.currentPositions.slice(0));
 
     // send an event on each iteration
-    var evt = document.createEvent("Event");
-    evt.initEvent("clmtrackrIteration", true, true);
-    document.dispatchEvent(evt)
+    this.emit('iteration');
 
     if (this.getConvergence() < 0.5) {
       // we must get a score before we can say we've converged
@@ -689,9 +695,7 @@ export default class Tracker {
           this.stop();
         }
 
-        var evt = document.createEvent("Event");
-        evt.initEvent("clmtrackrConverged", true, true);
-        document.dispatchEvent(evt)
+        this.emit('converged');
       }
     }
 
