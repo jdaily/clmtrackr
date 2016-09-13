@@ -247,7 +247,7 @@ function mosseFilter(params) {
         // find max and min
         var max = 0;
         var min = 0;
-        var maxpos = [];
+        var maxpos = [0, 0];
 
         //method using centered gaussian prior
         if (gaussianPrior) {
@@ -436,10 +436,9 @@ function mosseFilter(params) {
 
     var preprocess = function(array) {
         // in-place
-
         // log adjusting
         for (var i = 0;i < _arrlen;i++) {
-          array[i] = Math.log(array[i]+1);
+          array[i] = Math.log(array[i] + 1);
         }
 
         // normalize to mean 0 and norm 1
@@ -452,13 +451,19 @@ function mosseFilter(params) {
         for (var i = 0;i < _arrlen;i++) {
           array[i] -= mean;
         }
+        // Calculate the normal
         var norm = 0.0;
         for (var i = 0;i < _arrlen;i++) {
           norm += (array[i]*array[i]);
         }
         norm = Math.sqrt(norm);
-        for (var i = 0;i < _arrlen;i++) {
-          array[i] /= norm;
+        // Apply the normal
+        if (norm !== 0) {
+            for (var i = 0;i < _arrlen;i++) {
+                if (array[i] !== 0) {
+                    array[i] /= norm;
+                }
+            }
         }
 
         return array;

@@ -4,8 +4,8 @@ import EventEmitter from 'events';
 import numeric from 'numeric';
 
 // libs
-import mosseFilter from './utils/mosse.js';
-import mosseFilterResponses from './utils/mosseFilterResponses.js';
+import MosseFilter from './utils/mosse.js';
+import MosseFilterResponses from './utils/mosseFilterResponses.js';
 import JsfeatFace from './jsfeat/JsfeatFace';
 import webglFilter from './svmfilter_webgl.js';
 import svmFilter from './svmfilter_fft.js';
@@ -27,6 +27,7 @@ import procrustes from './utils/procrustes';
 
 
 const halfPI = Math.PI / 2;
+const HAS_MOSSE_FILTERS = MosseFilter && left_eye_filter && right_eye_filter && nose_filter;
 
 
 export default class Tracker extends EventEmitter {
@@ -185,15 +186,15 @@ export default class Tracker extends EventEmitter {
     this.sketchW = this.sketchCanvas.width = this.modelWidth + (this.searchWindow - 1) + this.patchSize - 1;
     this.sketchH = this.sketchCanvas.height = this.modelHeight + (this.searchWindow - 1) + this.patchSize - 1;
 
-    if (this.model.hints && mosseFilter && left_eye_filter && right_eye_filter && nose_filter) {
-      //var mossef_lefteye = new mosseFilter({drawResponse : document.getElementById('overlay2')});
-      this.mossef_lefteye = new mosseFilter();
+    if (this.model.hints && HAS_MOSSE_FILTERS) {
+      //var mossef_lefteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      this.mossef_lefteye = new MosseFilter();
       this.mossef_lefteye.load(left_eye_filter);
-      //var mossef_righteye = new mosseFilter({drawResponse : document.getElementById('overlay2')});
-      this.mossef_righteye = new mosseFilter();
+      //var mossef_righteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      this.mossef_righteye = new MosseFilter();
       this.mossef_righteye.load(right_eye_filter);
-      //var mossef_nose = new mosseFilter({drawResponse : document.getElementById('overlay2')});
-      this.mossef_nose = new mosseFilter();
+      //var mossef_nose = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      this.mossef_nose = new MosseFilter();
       this.mossef_nose.load(nose_filter);
     } else {
       console.log("MOSSE filters not found, using rough approximation for initialization.");
@@ -284,7 +285,7 @@ export default class Tracker extends EventEmitter {
         throw "Could not initiate filters, please make sure that svmfilter.js or svmfilter_conv_js.js is loaded."
       }
     } else if (this.patchType == "MOSSE") {
-      this.mosseCalc = new mosseFilterResponses();
+      this.mosseCalc = new MosseFilterResponses();
       this.mosseCalc.init(this.weights, this.numPatches, this.patchSize, this.patchSize);
     }
 
@@ -379,7 +380,6 @@ export default class Tracker extends EventEmitter {
     this.emit('beforeTrack');
 
     var scaling, translateX, translateY, rotation;
-    var croppedPatches = [];
     var ptch, px, py;
 
     if (gi) {
@@ -651,7 +651,6 @@ export default class Tracker extends EventEmitter {
             this.currentParameters[k+4] = -clip;
           }
         }
-
       }
 
       // update current coordinates
@@ -907,13 +906,17 @@ export default class Tracker extends EventEmitter {
 
   // generates the jacobian matrix used for optimization calculations
   _createJacobian (parameters, eigenVectors) {
-    var jacobian = numeric.rep([2*this.numPatches, this.numParameters+4],0.0);
-    var j0,j1;
-    for (var i = 0;i < this.numPatches;i ++) {
+    const jacobian = numeric.rep(
+      [2 * this.numPatches, this.numParameters + 4],
+      0.0
+    );
+    let j0;
+    let j1;
+    for (let i = 0; i < this.numPatches; i++) {
       // 1
       j0 = this.meanShape[i][0];
       j1 = this.meanShape[i][1];
-      for (var p = 0;p < this.numParameters;p++) {
+      for (let p = 0;p < this.numParameters;p++) {
         j0 += parameters[p+4]*eigenVectors[i*2][p];
         j1 += parameters[p+4]*eigenVectors[(i*2)+1][p];
       }
@@ -922,7 +925,7 @@ export default class Tracker extends EventEmitter {
       // 2
       j0 = this.meanShape[i][1];
       j1 = this.meanShape[i][0];
-      for (var p = 0;p < this.numParameters;p++) {
+      for (let p = 0; p < this.numParameters; p++) {
         j0 += parameters[p+4]*eigenVectors[(i*2)+1][p];
         j1 += parameters[p+4]*eigenVectors[i*2][p];
       }
@@ -935,7 +938,7 @@ export default class Tracker extends EventEmitter {
       jacobian[i*2][3] = 0;
       jacobian[(i*2)+1][3] = 1;
       // the rest
-      for (var j = 0;j < this.numParameters;j++) {
+      for (let j = 0; j < this.numParameters; j++) {
         j0 = parameters[0]*eigenVectors[i*2][j] - parameters[1]*eigenVectors[(i*2)+1][j] + eigenVectors[i*2][j];
         j1 = parameters[0]*eigenVectors[(i*2)+1][j] + parameters[1]*eigenVectors[i*2][j] + eigenVectors[(i*2)+1][j];
         jacobian[i*2][j+4] = j0;
@@ -1077,9 +1080,9 @@ export default class Tracker extends EventEmitter {
     }
 
     const candidate = this.candidate;
-    if (this.model.hints && mosseFilter && left_eye_filter && right_eye_filter && nose_filter) {
-      var noseFilterWidth = candidate.width * 4.5/10;
-      var eyeFilterWidth = candidate.width * 6/10;
+    if (this.model.hints && HAS_MOSSE_FILTERS) {
+      var noseFilterWidth = candidate.width * 4.5 / 10;
+      var eyeFilterWidth = candidate.width * 6 / 10;
 
       // detect position of eyes and nose via mosse filter
       //
@@ -1090,15 +1093,36 @@ export default class Tracker extends EventEmitter {
       canvasContext.strokeRect(candidate.x, candidate.y, candidate.width, candidate.height);*/
       //
 
-      var nose_result = this.mossef_nose.track(element, Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2)), Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2)), noseFilterWidth, noseFilterWidth, false);
-      var right_result = this.mossef_righteye.track(element, Math.round(candidate.x+(candidate.width*3/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth, false);
-      var left_result = this.mossef_lefteye.track(element, Math.round(candidate.x+(candidate.width/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth, false);
-      this.right_eye_position[0] = Math.round(candidate.x+(candidate.width*3/4)-(eyeFilterWidth/2))+right_result[0];
-      this.right_eye_position[1] = Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2))+right_result[1];
-      this.left_eye_position[0] = Math.round(candidate.x+(candidate.width/4)-(eyeFilterWidth/2))+left_result[0];
-      this.left_eye_position[1] = Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2))+left_result[1];
-      this.nose_position[0] = Math.round(candidate.x+(candidate.width/2)-(noseFilterWidth/2))+nose_result[0];
-      this.nose_position[1] = Math.round(candidate.y+candidate.height*(5/8)-(noseFilterWidth/2))+nose_result[1];
+      var noseResult = this.mossef_nose.track(
+        element,
+        Math.round(candidate.x + (candidate.width / 2) - (noseFilterWidth / 2)),
+        Math.round(candidate.y + candidate.height * (5 / 8) - (noseFilterWidth / 2)),
+        noseFilterWidth,
+        noseFilterWidth,
+        false
+      );
+      var rightResult = this.mossef_righteye.track(
+        element,
+        Math.round(candidate.x + (candidate.width * 3 / 4) - (eyeFilterWidth / 2)),
+        Math.round(candidate.y + candidate.height * (2 / 5) - (eyeFilterWidth / 2)),
+        eyeFilterWidth,
+        eyeFilterWidth,
+        false
+      );
+      var leftResult = this.mossef_lefteye.track(
+        element,
+        Math.round(candidate.x + (candidate.width / 4) - (eyeFilterWidth / 2)),
+        Math.round(candidate.y + candidate.height * (2 / 5) - (eyeFilterWidth / 2)),
+        eyeFilterWidth,
+        eyeFilterWidth,
+        false
+      );
+      this.right_eye_position[0] = Math.round(candidate.x + (candidate.width * 3 / 4) - (eyeFilterWidth / 2)) + rightResult[0];
+      this.right_eye_position[1] = Math.round(candidate.y + candidate.height * (2 / 5) - (eyeFilterWidth / 2)) + rightResult[1];
+      this.left_eye_position[0] = Math.round(candidate.x + (candidate.width / 4) - (eyeFilterWidth / 2)) + leftResult[0];
+      this.left_eye_position[1] = Math.round(candidate.y + candidate.height * (2 / 5) - (eyeFilterWidth / 2)) + leftResult[1];
+      this.nose_position[0] = Math.round(candidate.x + (candidate.width / 2) - (noseFilterWidth / 2)) + noseResult[0];
+      this.nose_position[1] = Math.round(candidate.y + candidate.height * (5 / 8) - (noseFilterWidth / 2)) + noseResult[1];
 
       //
       /*canvasContext.strokeRect(Math.round(candidate.x+(candidate.width*3/4)-(eyeFilterWidth/2)), Math.round(candidate.y+candidate.height*(2/5)-(eyeFilterWidth/2)), eyeFilterWidth, eyeFilterWidth);
