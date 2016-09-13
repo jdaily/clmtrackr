@@ -4,30 +4,29 @@ import EventEmitter from 'events';
 import numeric from 'numeric';
 
 // libs
-import MosseFilter from './utils/mosse.js';
-import MosseFilterResponses from './utils/mosseFilterResponses.js';
+import MosseFilter from './utils/mosse';
+import MosseFilterResponses from './utils/mosseFilterResponses';
 import JsfeatFace from './jsfeat/JsfeatFace';
-import webglFilter from './svmfilter_webgl.js';
-import svmFilter from './svmfilter_fft.js';
+import webglFilter from './svmfilter_webgl';
+import svmFilter from './svmfilter_fft';
 
 // filters
-import entire_face_filter from './filters/entire_face_filter.json';
-import left_eye_filter from './filters/left_eye_filter.json';
-import right_eye_filter from './filters/right_eye_filter.json';
-import nose_filter from './filters/nose_filter.json';
+// import entireFaceFilter from './filters/entire_face_filter.json';
+import leftEyeFilter from './filters/left_eye_filter.json';
+import rightEyeFilter from './filters/right_eye_filter.json';
+import noseFilter from './filters/nose_filter.json';
 
 
 import {
   requestAnimFrame,
   cancelRequestAnimFrame
-  // drawData
-} from './utils/canvasHelpers';
+} from './utils/anim';
 import { gpopt, gpopt2 } from './utils/meanshift';
 import procrustes from './utils/procrustes';
 
 
 const halfPI = Math.PI / 2;
-const HAS_MOSSE_FILTERS = MosseFilter && left_eye_filter && right_eye_filter && nose_filter;
+const HAS_MOSSE_FILTERS = MosseFilter && leftEyeFilter && rightEyeFilter && noseFilter;
 
 
 export default class Tracker extends EventEmitter {
@@ -189,13 +188,13 @@ export default class Tracker extends EventEmitter {
     if (this.model.hints && HAS_MOSSE_FILTERS) {
       //var mossef_lefteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_lefteye = new MosseFilter();
-      this.mossef_lefteye.load(left_eye_filter);
+      this.mossef_lefteye.load(leftEyeFilter);
       //var mossef_righteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_righteye = new MosseFilter();
-      this.mossef_righteye.load(right_eye_filter);
+      this.mossef_righteye.load(rightEyeFilter);
       //var mossef_nose = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_nose = new MosseFilter();
-      this.mossef_nose.load(nose_filter);
+      this.mossef_nose.load(noseFilter);
     } else {
       console.log("MOSSE filters not found, using rough approximation for initialization.");
     }
