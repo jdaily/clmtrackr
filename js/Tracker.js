@@ -155,6 +155,8 @@ export default class Tracker extends EventEmitter {
     this.runnerBox = undefined;
 
     this.pointWeights = undefined;
+
+    this.jsfeatFace = new JsfeatFace();
   }
 
   /*
@@ -992,20 +994,15 @@ export default class Tracker extends EventEmitter {
 
   // detect position of face on canvas/video element
   _detectPosition (el, callback) {
-    var canvas = document.createElement('canvas');
-    canvas.width = el.width;
-    canvas.height = el.height;
-    var cc = canvas.getContext('2d');
-    cc.drawImage(el, 0, 0, el.width, el.height);
-
-    var jf = new JsfeatFace(canvas);
-    // jf.faceDetected = this._faceDetected.bind(this);
-    jf.on('faceDetected', (comp) => {
+    const detectedCb = (comp) => {
+      this.jsfeatFace.removeListener('faceDetected', detectedCb);
       this._faceDetected(comp, callback);
-    });
+    };
+
+    this.jsfeatFace.on('faceDetected', detectedCb);
 
     // TODO Allow option that limit simultaneous trigger of WebWorkers
-    jf.findFace();
+    this.jsfeatFace.findFace(el);
   }
 
   // calculate score of current fit

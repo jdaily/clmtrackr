@@ -9,22 +9,45 @@ export default class JsfeatFace extends EventEmitter {
   /**
    * @param  {Canvas|Image|Video} image
    */
-  constructor (image) {
+  constructor () {
     super();
-    this.work_canvas = undefined;
-    this.work_ctx = undefined;
 
-    this.image = image;
-    this.w = this.image.width;
-    this.h = this.image.height;
+    this._waitingForResponse = false;
+    this.worker = findFaceWorker();
 
-    if (this.image.tagName === 'VIDEO' || this.image.tagName === 'IMG') {
-      this.work_canvas = document.createElement('canvas');
-      this.work_canvas.height = this.image.width;
-      this.work_canvas.width = this.image.height;
-      this.work_ctx = this.work_canvas.getContext('2d');
-    } else if (this.image.tagName === 'CANVAS') {
-      this.work_ctx = this.image.getContext('2d');
+    // Listen for messages coming out of the web worker
+    this.worker.addEventListener('message', (e) => {
+      if (e.data.type === 'console') {
+        console[e.data.func].apply(window, e.data.args);
+        return;
+      }
+
+      this._waitingForResponse = false;
+      this.emit('faceDetected', e.data.comp);
+    }, false);
+  }
+
+  findFace (image) {
+    if (this._waitingForResponse) {
+      throw new Error('Already finding face');
+    }
+    this._waitingForResponse = true;
+
+    let workCtx;
+    const w = image.width;
+    const h = image.height;
+
+    if (image.tagName === 'VIDEO' || image.tagName === 'IMG') {
+      const workCanvas = document.createElement('canvas');
+      workCanvas.height = image.width;
+      workCanvas.width = image.height;
+      workCtx = workCanvas.getContext('2d');
+      // Draw a single frame
+      workCtx.drawImage(image, 0, 0);
+    } else if (image.tagName === 'CANVAS') {
+      workCtx = image.getContext('2d');
+    } else {
+      throw new Error('unknown image tagName: ' + image.tagName);
     }
 
     // img_u8 = new jsfeat.matrix_t(w, h, jsfeat.U8_t | jsfeat.C1_t);
@@ -34,28 +57,21 @@ export default class JsfeatFace extends EventEmitter {
 
     // var classifier = frontalface;
 
-    this.worker = findFaceWorker();
-
-    this.worker.addEventListener('message', (e) => {
-      if (e.data.type === 'console') {
-        console[e.data.func].apply(window, e.data.args);
-        return;
-      }
-
-      this.emit('faceDetected', e.data.comp);
-    }, false);
-  }
-
-  findFace () {
-    if (this.image.tagName === 'VIDEO' || this.image.tagName === 'IMG') {
-      this.work_ctx.drawImage(this.image, 0, 0);
+    let imageData;
+    try {
+      imageData = workCtx.getImageData(0, 0, w, h);
+    } catch (e) {
+      console.warn(
+        'Could not getImageData, is your element too large?',
+        `w= ${w} h= ${h}`
+      );
+      console.error(e);
     }
-    const imageData = this.work_ctx.getImageData(0, 0, this.w, this.h);
 
     // console.time('findFace');
     this.worker.postMessage({
-      w: this.w,
-      h: this.h,
+      w: w,
+      h: h,
       imageData: imageData
     });
   }
