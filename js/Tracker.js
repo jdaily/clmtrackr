@@ -972,8 +972,7 @@ export default class Tracker extends EventEmitter {
     return positions;
   }
 
-  _faceDetected (e, callback) {
-    var comp = e.data.comp;
+  _faceDetected (comp, callback) {
     if (comp && comp.length > 0) {
       this.candidate = comp[0];
     } else {
@@ -1000,9 +999,13 @@ export default class Tracker extends EventEmitter {
     cc.drawImage(el, 0, 0, el.width, el.height);
 
     var jf = new JsfeatFace(canvas);
-    jf.faceDetected = this._faceDetected.bind(this);
-    //TODO Allow option that limit simultaneous trigger of WebWorkers
-    var comp = jf.findFace(callback);
+    // jf.faceDetected = this._faceDetected.bind(this);
+    jf.on('faceDetected', (comp) => {
+      this._faceDetected(comp, callback);
+    });
+
+    // TODO Allow option that limit simultaneous trigger of WebWorkers
+    jf.findFace();
   }
 
   // calculate score of current fit

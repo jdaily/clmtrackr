@@ -32,24 +32,22 @@ onmessage = function (e) {
   const rl = rects.length;
 
   // console.timeEnd('findFace');
-  if (rl > 0) {
-    let best = rects[0];
-    for (let i = 1; i < rl; i++) {
-      if (rects[i].neighbors > best.neighbors) {
-        best = rects[i]
-      } else if (rects[i].neighbors == best.neighbors) {
-        if (rects[i].confidence > best.confidence) {
-          best = rects[i];
-        }
+  if (rl <= 0) {
+    self.postMessage({ comp: false });
+    return;
+  }
+
+  let best = rects[0];
+  for (let i = 1; i < rl; i++) {
+    if (rects[i].neighbors > best.neighbors) {
+      best = rects[i]
+    } else if (rects[i].neighbors === best.neighbors) {
+      if (rects[i].confidence > best.confidence) {
+        best = rects[i];
       }
     }
-    // return [best];
-    self.postMessage({
-      comp: [best]
-    });
-  } else {
-    self.postMessage(imageData);
-    //return false;
   }
+
+  self.postMessage({ comp: [best] });
   // END Old findFace
 };
