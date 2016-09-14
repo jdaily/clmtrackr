@@ -69,11 +69,15 @@ export default class JsfeatFace extends EventEmitter {
     }
 
     // console.time('findFace');
-    this.worker.postMessage({
+    // Send the underlying ArrayBuffer to worker
+    const imageDataBuffer = imageData.data.buffer;
+    const message = {
       w: w,
       h: h,
-      imageData: imageData
-    });
+      imageDataBuffer: imageDataBuffer,
+      imageDataLength: imageData.length
+    };
+    this.worker.postMessage(message, [message.imageDataBuffer]);
   }
 
 }
