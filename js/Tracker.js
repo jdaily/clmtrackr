@@ -7,8 +7,8 @@ import numeric from 'numeric';
 import MosseFilter from './utils/mosse';
 import MosseFilterResponses from './utils/mosseFilterResponses';
 import JsfeatFace from './jsfeat/JsfeatFace';
-import webglFilter from './svmfilter_webgl';
-import svmFilter from './svmfilter_fft';
+import WebglFilter from './svmfilter_webgl';
+import SvmFilter from './svmfilter_fft';
 
 // filters
 // import entireFaceFilter from './filters/entire_face_filter.json';
@@ -27,7 +27,8 @@ import procrustes from './utils/procrustes';
 
 const halfPI = Math.PI / 2;
 const HAS_MOSSE_FILTERS = MosseFilter && leftEyeFilter && rightEyeFilter && noseFilter;
-
+const VALID_RESPONSEMODE_LIST = ['raw', 'sobel', 'lbp'];
+const VALID_RESPONSEMODES = ['single', 'blend', 'cycle'];
 
 export default class Tracker extends EventEmitter {
   constructor (params) {
@@ -83,9 +84,9 @@ export default class Tracker extends EventEmitter {
     It's possible to experiment with the sequence of variances used for the finding the maximum in the KDE.
     This sequence is pretty arbitrary, but was found to be okay using some manual testing.
     */
-    this.varianceSeq = [10,5,1];
-    //this.varianceSeq = [3,1.5,0.75];
-    //this.varianceSeq = [6,3,0.75];
+    this.varianceSeq = [10, 5, 1];
+    // this.varianceSeq = [3, 1.5, 0.75];
+    // this.varianceSeq = [6, 3, 0.75];
     this.PDMVariance = 0.7;
 
     this.relaxation = 0.1;
@@ -108,7 +109,7 @@ export default class Tracker extends EventEmitter {
     this.vecProbs = undefined;
     this.responsePixels = undefined;
 
-    if(typeof Float64Array !== 'undefined') {
+    if (typeof Float64Array !== 'undefined') {
       this.updatePosition = new Float64Array(2);
       this.vecpos = new Float64Array(2);
     } else {
@@ -126,7 +127,7 @@ export default class Tracker extends EventEmitter {
     this.mosseCalc = undefined;
 
     this.scoringCanvas = document.createElement('canvas');
-    //document.body.appendChild(this.scoringCanvas);
+    // document.body.appendChild(this.scoringCanvas);
     this.scoringContext = this.scoringCanvas.getContext('2d');
     this.msxmin = undefined;
     this.msymin = undefined;
@@ -144,9 +145,9 @@ export default class Tracker extends EventEmitter {
     this.mossef_righteye = undefined;
     this.mossef_nose = undefined;
 
-    this.right_eye_position = [0.0,0.0];
-    this.left_eye_position = [0.0,0.0];
-    this.nose_position = [0.0,0.0];
+    this.right_eye_position = [0.0, 0.0];
+    this.left_eye_position = [0.0, 0.0];
+    this.nose_position = [0.0, 0.0];
     this.lep = undefined;
     this.rep = undefined;
     this.mep = undefined;
@@ -171,8 +172,8 @@ export default class Tracker extends EventEmitter {
     this.patchType = this.model.patchModel.patchType;
     this.numPatches = this.model.patchModel.numPatches;
     this.patchSize = this.model.patchModel.patchSize[0];
-    if (this.patchType == "MOSSE") {
-      this.searchWindow = patchSize;
+    if (this.patchType === 'MOSSE') {
+      this.searchWindow = this.patchSize;
     } else {
       this.searchWindow = this.params.searchWindow;
     }
@@ -188,43 +189,43 @@ export default class Tracker extends EventEmitter {
     this.sketchH = this.sketchCanvas.height = this.modelHeight + (this.searchWindow - 1) + this.patchSize - 1;
 
     if (this.model.hints && HAS_MOSSE_FILTERS) {
-      //var mossef_lefteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      // var mossef_lefteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_lefteye = new MosseFilter();
       this.mossef_lefteye.load(leftEyeFilter);
-      //var mossef_righteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      // var mossef_righteye = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_righteye = new MosseFilter();
       this.mossef_righteye.load(rightEyeFilter);
-      //var mossef_nose = new MosseFilter({drawResponse : document.getElementById('overlay2')});
+      // var mossef_nose = new MosseFilter({drawResponse : document.getElementById('overlay2')});
       this.mossef_nose = new MosseFilter();
       this.mossef_nose.load(noseFilter);
     } else {
-      console.log("MOSSE filters not found, using rough approximation for initialization.");
+      console.log('MOSSE filters not found, using rough approximation for initialization.');
     }
 
     // load eigenvectors
     this.eigenVectors = numeric.rep([this.numPatches * 2, this.numParameters], 0.0);
-    for (var i = 0; i < this.numPatches * 2; i++) {
-      for (var j = 0; j < this.numParameters; j++) {
+    for (let i = 0; i < this.numPatches * 2; i++) {
+      for (let j = 0; j < this.numParameters; j++) {
         this.eigenVectors[i][j] = this.model.shapeModel.eigenVectors[i][j];
       }
     }
 
     // load mean shape
-    for (var i = 0; i < this.numPatches;i++) {
+    for (let i = 0; i < this.numPatches; i++) {
       this.meanShape[i] = [this.model.shapeModel.meanShape[i][0], this.model.shapeModel.meanShape[i][1]];
     }
 
     // get max and mins, width and height of meanshape
     this.msxmax = this.msymax = 0;
     this.msxmin = this.msymin = 1000000;
-    for (var i = 0;i < this.numPatches;i++) {
+    for (let i = 0; i < this.numPatches; i++) {
       if (this.meanShape[i][0] < this.msxmin) this.msxmin = this.meanShape[i][0];
       if (this.meanShape[i][1] < this.msymin) this.msymin = this.meanShape[i][1];
       if (this.meanShape[i][0] > this.msxmax) this.msxmax = this.meanShape[i][0];
       if (this.meanShape[i][1] > this.msymax) this.msymax = this.meanShape[i][1];
     }
-    this.msmodelwidth = this.msxmax-this.msxmin;
-    this.msmodelheight = this.msymax-this.msymin;
+    this.msmodelwidth = this.msxmax - this.msxmin;
+    this.msmodelheight = this.msymax - this.msymin;
 
     // get scoringweights if they exist
     if (this.model.scoring) {
@@ -241,76 +242,105 @@ export default class Tracker extends EventEmitter {
     this.biases = this.model.patchModel.bias;
 
     // precalculate gaussianPriorDiagonal
-    this.gaussianPD = numeric.rep([this.numParameters+4, this.numParameters+4],0);
+    this.gaussianPD = numeric.rep(
+      [this.numParameters + 4, this.numParameters + 4],
+      0
+    );
     // set values and append manual inverse
-    for (var i = 0;i < this.numParameters;i++) {
+    for (let i = 0; i < this.numParameters; i++) {
       if (this.model.shapeModel.nonRegularizedVectors.indexOf(i) >= 0) {
-        this.gaussianPD[i+4][i+4] = 1/10000000;
+        this.gaussianPD[i + 4][i + 4] = 1 / 10000000;
       } else {
-        this.gaussianPD[i+4][i+4] = 1/this.eigenValues[i];
+        this.gaussianPD[i + 4][i + 4] = 1 / this.eigenValues[i];
       }
     }
 
-    for (var i = 0;i < this.numParameters+4;i++) {
+    for (let i = 0; i < this.numParameters + 4; i++) {
       this.currentParameters[i] = 0;
     }
 
-    if (this.patchType == "SVM") {
-      var webGLContext;
-      var webGLTestCanvas = document.createElement('canvas');
+    if (this.patchType === 'SVM') {
+      let webGLContext;
+      const webGLTestCanvas = document.createElement('canvas');
       if (window.WebGLRenderingContext) {
-        webGLContext = webGLTestCanvas.getContext('webgl') || webGLTestCanvas.getContext('experimental-webgl');
+        webGLContext = (
+          webGLTestCanvas.getContext('webgl') ||
+          webGLTestCanvas.getContext('experimental-webgl')
+        );
         if (!webGLContext || !webGLContext.getExtension('OES_texture_float')) {
           webGLContext = null;
         }
       }
 
-      if (webGLContext && this.params.useWebGL && (typeof(webglFilter) !== "undefined")) {
-        this.webglFi = new webglFilter();
+      if (
+        webGLContext &&
+        this.params.useWebGL &&
+        typeof WebglFilter !== 'undefined'
+      ) {
+        this.webglFi = new WebglFilter();
         try {
-          this.webglFi.init(this.weights, this.biases, this.numPatches, this.searchWindow+this.patchSize-1, this.searchWindow+this.patchSize-1, this.patchSize, this.patchSize);
+          this.webglFi.init(
+            this.weights,
+            this.biases,
+            this.numPatches,
+            this.searchWindow + this.patchSize - 1,
+            this.searchWindow + this.patchSize - 1,
+            this.patchSize,
+            this.patchSize
+          );
           if ('lbp' in this.weights) this.lbpInit = true;
           if ('sobel' in this.weights) this.sobelInit = true;
-        }
-        catch(err) {
-          alert("There was a problem setting up webGL programs, falling back to slightly slower javascript version. :(");
+        } catch (err) {
+          alert('There was a problem setting up webGL programs, falling back to slightly slower javascript version. :(');
           this.webglFi = undefined;
-          this.svmFi = new svmFilter();
-          this.svmFi.init(this.weights['raw'], this.biases['raw'], this.numPatches, this.patchSize, this.searchWindow);
+          this.svmFi = new SvmFilter();
+          this.svmFi.init(
+            this.weights['raw'],
+            this.biases['raw'],
+            this.numPatches,
+            this.patchSize,
+            this.searchWindow
+          );
         }
-      } else if (typeof(svmFilter) !== "undefined") {
+      } else if (typeof SvmFilter !== 'undefined') {
         // use fft convolution if no webGL is available
-        this.svmFi = new svmFilter();
-        this.svmFi.init(this.weights['raw'], this.biases['raw'], this.numPatches, this.patchSize, this.searchWindow);
+        this.svmFi = new SvmFilter();
+        this.svmFi.init(
+          this.weights['raw'],
+          this.biases['raw'],
+          this.numPatches,
+          this.patchSize,
+          this.searchWindow
+        );
       } else {
-        throw "Could not initiate filters, please make sure that svmfilter.js or svmfilter_conv_js.js is loaded."
+        throw new Error('Could not initiate filters, please make sure that svmfilter.js or svmfilter_conv_js.js is loaded.');
       }
-    } else if (this.patchType == "MOSSE") {
+    } else if (this.patchType === 'MOSSE') {
       this.mosseCalc = new MosseFilterResponses();
       this.mosseCalc.init(this.weights, this.numPatches, this.patchSize, this.patchSize);
     }
 
-    if (this.patchType == "SVM") {
-      this.pw = this.pl = this.patchSize+this.searchWindow-1;
+    if (this.patchType === 'SVM') {
+      this.pw = this.pl = this.patchSize + this.searchWindow - 1;
     } else {
       this.pw = this.pl = this.searchWindow;
     }
-    this.pdataLength = this.pw*this.pl;
-    this.halfSearchWindow = (this.searchWindow-1)/2;
-    this.responsePixels = this.searchWindow*this.searchWindow;
-    if(typeof Float64Array !== 'undefined') {
+    this.pdataLength = this.pw * this.pl;
+    this.halfSearchWindow = (this.searchWindow - 1) / 2;
+    this.responsePixels = this.searchWindow * this.searchWindow;
+    if (typeof Float64Array !== 'undefined') {
       this.vecProbs = new Float64Array(this.responsePixels);
-      for (var i = 0;i < this.numPatches;i++) {
+      for (let i = 0; i < this.numPatches; i++) {
         this.patches[i] = new Float64Array(this.pdataLength);
       }
     } else {
       this.vecProbs = new Array(this.responsePixels);
-      for (var i = 0;i < this.numPatches;i++) {
+      for (let i = 0; i < this.numPatches; i++) {
         this.patches[i] = new Array(this.pdataLength);
       }
     }
 
-    for (var i = 0;i < this.numPatches;i++) {
+    for (let i = 0; i < this.numPatches; i++) {
       this.learningRate[i] = 1.0;
       this.prevCostFunc[i] = 0.0;
     }
@@ -318,13 +348,13 @@ export default class Tracker extends EventEmitter {
     if (this.params.weightPoints) {
       // weighting of points
       this.pointWeights = [];
-      for (var i = 0;i < this.numPatches;i++) {
+      for (let i = 0; i < this.numPatches; i++) {
         if (i in this.params.weightPoints) {
-          this.pointWeights[(i*2)] = this.params.weightPoints[i];
-          this.pointWeights[(i*2)+1] = this.params.weightPoints[i];
+          this.pointWeights[(i * 2)] = this.params.weightPoints[i];
+          this.pointWeights[(i * 2) + 1] = this.params.weightPoints[i];
         } else {
-          this.pointWeights[(i*2)] = 1;
-          this.pointWeights[(i*2)+1] = 1;
+          this.pointWeights[(i * 2)] = 1;
+          this.pointWeights[(i * 2) + 1] = 1;
         }
       }
       this.pointWeights = numeric.diag(this.pointWeights);
@@ -336,12 +366,12 @@ export default class Tracker extends EventEmitter {
    */
   start (element, box) {
     // check if model is initalized, else return false
-    if (typeof(this.model) === "undefined") {
-      console.log("tracker needs to be initalized before starting to track.");
+    if (typeof this.model === 'undefined') {
+      console.log('tracker needs to be initalized before starting to track.');
       return false;
     }
-    //check if a runnerelement already exists, if not, use passed parameters
-    if (typeof(this.runnerElement) === "undefined") {
+    // check if a runnerelement already exists, if not, use passed parameters
+    if (typeof this.runnerElement === 'undefined') {
       this.runnerElement = element;
       this.runnerBox = box;
     }
@@ -415,15 +445,25 @@ export default class Tracker extends EventEmitter {
       if (this.params.constantVelocity) {
         // calculate where to get patches via constant velocity prediction
         if (this.previousParameters.length >= 2) {
-          for (var i = 0;i < this.currentParameters.length;i++) {
-            this.currentParameters[i] = (this.relaxation)*this.previousParameters[1][i] + (1-this.relaxation)*((2*this.previousParameters[1][i]) - this.previousParameters[0][i]);
-            //this.currentParameters[i] = (3*this.previousParameters[2][i]) - (3*this.previousParameters[1][i]) + this.previousParameters[0][i];
+          for (var i = 0; i < this.currentParameters.length; i++) {
+            this.currentParameters[i] = (
+              this.relaxation *
+              this.previousParameters[1][i] +
+              (1 - this.relaxation) *
+              (
+                (2 * this.previousParameters[1][i]) -
+                this.previousParameters[0][i]
+              )
+            );
+            // this.currentParameters[i] = (3*this.previousParameters[2][i]) - (3*this.previousParameters[1][i]) + this.previousParameters[0][i];
           }
         }
       }
 
       // change translation, rotation and scale parameters
-      rotation = halfPI - Math.atan((this.currentParameters[0]+1)/this.currentParameters[1]);
+      rotation = halfPI - Math.atan(
+        (this.currentParameters[0] + 1) / this.currentParameters[1]
+      );
       if (rotation > halfPI) {
         rotation -= Math.PI;
       }
@@ -438,7 +478,7 @@ export default class Tracker extends EventEmitter {
     // clear canvas
     this.sketchCC.clearRect(0, 0, this.sketchW, this.sketchH);
 
-    this.sketchCC.scale(1/scaling, 1/scaling);
+    this.sketchCC.scale(1 / scaling, 1 / scaling);
     this.sketchCC.rotate(-rotation);
     this.sketchCC.translate(-translateX, -translateY);
 
@@ -449,12 +489,12 @@ export default class Tracker extends EventEmitter {
     var patchPositions = this._calculatePositions(this.currentParameters, false);
 
     // check whether tracking is ok
-    if (this.scoringWeights && (this.facecheck_count % 10 == 0)) {
+    if (this.scoringWeights && (this.facecheck_count % 10 === 0)) {
       if (!this._checkTracking()) {
         // reset all parameters
         this.first = true;
         this.scoringHistory = [];
-        for (var i = 0;i < this.currentParameters.length;i++) {
+        for (let i = 0; i < this.currentParameters.length; i++) {
           this.currentParameters[i] = 0;
           this.previousParameters = [];
         }
@@ -466,18 +506,26 @@ export default class Tracker extends EventEmitter {
       }
     }
 
-
     var pdata, pmatrix, grayscaleColor;
-    for (var i = 0; i < this.numPatches; i++) {
-      px = patchPositions[i][0]-(this.pw/2);
-      py = patchPositions[i][1]-(this.pl/2);
-      ptch = this.sketchCC.getImageData(Math.round(px), Math.round(py), this.pw, this.pl);
+    for (let i = 0; i < this.numPatches; i++) {
+      px = patchPositions[i][0] - (this.pw / 2);
+      py = patchPositions[i][1] - (this.pl / 2);
+      ptch = this.sketchCC.getImageData(
+        Math.round(px),
+        Math.round(py),
+        this.pw,
+        this.pl
+      );
       pdata = ptch.data;
 
       // convert to grayscale
       pmatrix = this.patches[i];
-      for (var j = 0;j < this.pdataLength;j++) {
-        grayscaleColor = pdata[j*4]*0.3 + pdata[(j*4)+1]*0.59 + pdata[(j*4)+2]*0.11;
+      for (let j = 0; j < this.pdataLength; j++) {
+        grayscaleColor = (
+          pdata[j * 4] * 0.3 +
+          pdata[(j * 4) + 1] * 0.59 +
+          pdata[(j * 4) + 2] * 0.11
+        );
         pmatrix[j] = grayscaleColor;
       }
     }
@@ -497,23 +545,26 @@ export default class Tracker extends EventEmitter {
         drawData(sketchCC, patches[i], pw, pl, false, patchPositions[i][0]-(pw/2), patchPositions[i][1]-(pl/2));
       }
     }*/
-    if (this.patchType == "SVM") {
-      if (typeof(this.webglFi) !== "undefined") {
+    if (this.patchType === 'SVM') {
+      if (typeof this.webglFi !== 'undefined') {
         this.responses = this._getWebGLResponses(this.patches);
-      } else if (typeof(this.svmFi) !== "undefined"){
+      } else if (typeof this.svmFi !== 'undefined') {
         this.responses = this.svmFi.getResponses(this.patches);
       } else {
-        throw "SVM-filters do not seem to be initiated properly."
+        throw new Error('SVM-filters do not seem to be initiated properly.');
       }
-    } else if (this.patchType == "MOSSE") {
+    } else if (this.patchType === 'MOSSE') {
       this.responses = this.mosseCalc.getResponses(this.patches);
     }
 
     // option to increase sharpness of responses
     if (this.params.sharpenResponse) {
-      for (var i = 0;i < this.numPatches;i++) {
-        for (var j = 0;j < this.responses[i].length;j++) {
-          this.responses[i][j] = Math.pow(this.responses[i][j], this.params.sharpenResponse);
+      for (let i = 0; i < this.numPatches; i++) {
+        for (let j = 0; j < this.responses[i].length; j++) {
+          this.responses[i][j] = Math.pow(
+            this.responses[i][j],
+            this.params.sharpenResponse
+          );
         }
       }
     }
@@ -539,27 +590,47 @@ export default class Tracker extends EventEmitter {
     var jac;
     var meanshiftVectors = [];
 
-    for (var i = 0; i < this.varianceSeq.length; i++) {
+    for (let i = 0; i < this.varianceSeq.length; i++) {
       // calculate jacobian
       jac = this._createJacobian(this.currentParameters, this.eigenVectors);
 
       // for debugging
-      //var debugMVs = [];
+      // var debugMVs = [];
 
       var opj0, opj1;
 
-      for (var j = 0;j < this.numPatches;j++) {
-        opj0 = originalPositions[j][0]-((this.searchWindow-1)*scaling/2);
-        opj1 = originalPositions[j][1]-((this.searchWindow-1)*scaling/2);
+      for (let j = 0; j < this.numPatches; j++) {
+        opj0 = originalPositions[j][0] - ((this.searchWindow - 1) * scaling / 2);
+        opj1 = originalPositions[j][1] - ((this.searchWindow - 1) * scaling / 2);
 
         // calculate PI x gaussians
-        var vpsum = gpopt(this.searchWindow, this.currentPositions[j], this.updatePosition, this.vecProbs, this.responses, opj0, opj1, j, this.varianceSeq[i], scaling);
+        var vpsum = gpopt(
+          this.searchWindow,
+          this.currentPositions[j],
+          this.updatePosition,
+          this.vecProbs,
+          this.responses,
+          opj0,
+          opj1,
+          j,
+          this.varianceSeq[i],
+          scaling
+        );
 
         // calculate meanshift-vector
-        gpopt2(this.searchWindow, this.vecpos, this.updatePosition, this.vecProbs, vpsum, opj0, opj1, scaling);
+        gpopt2(
+          this.searchWindow,
+          this.vecpos,
+          this.updatePosition,
+          this.vecProbs,
+          vpsum,
+          opj0,
+          opj1,
+          scaling
+        );
 
         // for debugging
-        //var debugMatrixMV = gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1);
+        // var debugMatrixMV = gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1);
 
         // evaluate here whether to increase/decrease stepSize
         /*if (vpsum >= prevCostFunc[j]) {
@@ -575,12 +646,15 @@ export default class Tracker extends EventEmitter {
         msv[0] = learningRate[j]*(vecpos[0] - currentPositions[j][0]);
         msv[1] = learningRate[j]*(vecpos[1] - currentPositions[j][1]);
         meanshiftVectors[j] = msv;*/
-        meanshiftVectors[j] = [this.vecpos[0] - this.currentPositions[j][0], this.vecpos[1] - this.currentPositions[j][1]];
+        meanshiftVectors[j] = [
+          this.vecpos[0] - this.currentPositions[j][0],
+          this.vecpos[1] - this.currentPositions[j][1]
+        ];
 
-        //if (isNaN(msv[0]) || isNaN(msv[1])) debugger;
+        // if (isNaN(msv[0]) || isNaN(msv[1])) debugger;
 
-        //for debugging
-        //debugMVs[j] = debugMatrixMV;
+        // for debugging
+        // debugMVs[j] = debugMatrixMV;
         //
       }
 
@@ -592,10 +666,10 @@ export default class Tracker extends EventEmitter {
         drawData(sketchCC, nuWeights, searchWindow, searchWindow, false, patchPositions[npidx][0]-((searchWindow-1)/2), patchPositions[npidx][1]-((searchWindow-1)/2));
       }*/
 
-      var meanShiftVector = numeric.rep([this.numPatches*2, 1],0.0);
-      for (let k = 0;k < this.numPatches;k++) {
-        meanShiftVector[k*2][0] = meanshiftVectors[k][0];
-        meanShiftVector[(k*2)+1][0] = meanshiftVectors[k][1];
+      var meanShiftVector = numeric.rep([this.numPatches * 2, 1], 0.0);
+      for (let k = 0; k < this.numPatches; k++) {
+        meanShiftVector[k * 2][0] = meanshiftVectors[k][0];
+        meanShiftVector[(k * 2) + 1][0] = meanshiftVectors[k][1];
       }
 
       // compute pdm parameter update
@@ -607,8 +681,8 @@ export default class Tracker extends EventEmitter {
       } else {
         jtj = numeric.dot(numeric.transpose(jac), jac);
       }
-      var cpMatrix = numeric.rep([this.numParameters+4, 1],0.0);
-      for (let l = 0;l < (this.numParameters+4);l++) {
+      var cpMatrix = numeric.rep([this.numParameters + 4, 1], 0.0);
+      for (let l = 0; l < (this.numParameters + 4); l++) {
         cpMatrix[l][0] = this.currentParameters[l];
       }
       var priorP = numeric.dot(prior, cpMatrix);
@@ -632,24 +706,24 @@ export default class Tracker extends EventEmitter {
       }
 
       var paramUpdate = numeric.dot(numeric.inv(paramUpdateLeft), paramUpdateRight);
-      //var paramUpdate = numeric.solve(paramUpdateLeft, paramUpdateRight, true);
+      // var paramUpdate = numeric.solve(paramUpdateLeft, paramUpdateRight, true);
 
       var oldPositions = this.currentPositions;
 
       // update estimated parameters
-      for (let k = 0;k < this.numParameters+4;k++) {
+      for (let k = 0; k < this.numParameters + 4; k++) {
         this.currentParameters[k] -= paramUpdate[k];
       }
 
       // clipping of parameters if they're too high
       var clip;
-      for (let k = 0;k < this.numParameters;k++) {
-        clip = Math.abs(3*Math.sqrt(this.eigenValues[k]));
-        if (Math.abs(this.currentParameters[k+4]) > clip) {
-          if (this.currentParameters[k+4] > 0) {
-            this.currentParameters[k+4] = clip;
+      for (let k = 0; k < this.numParameters; k++) {
+        clip = Math.abs(3 * Math.sqrt(this.eigenValues[k]));
+        if (Math.abs(this.currentParameters[k + 4]) > clip) {
+          if (this.currentParameters[k + 4] > 0) {
+            this.currentParameters[k + 4] = clip;
           } else {
-            this.currentParameters[k+4] = -clip;
+            this.currentParameters[k + 4] = -clip;
           }
         }
       }
@@ -659,30 +733,30 @@ export default class Tracker extends EventEmitter {
 
       // check if converged
       // calculate norm of parameterdifference
-      var positionNorm = 0;
-      var pnsq_x, pnsq_y;
-      for (var k = 0;k < this.currentPositions.length;k++) {
-        pnsq_x = (this.currentPositions[k][0]-oldPositions[k][0]);
-        pnsq_y = (this.currentPositions[k][1]-oldPositions[k][1]);
-        positionNorm += ((pnsq_x*pnsq_x) + (pnsq_y*pnsq_y));
+      let positionNorm = 0;
+      let pnsqX;
+      let pnsqY;
+      for (let k = 0; k < this.currentPositions.length; k++) {
+        pnsqX = (this.currentPositions[k][0] - oldPositions[k][0]);
+        pnsqY = (this.currentPositions[k][1] - oldPositions[k][1]);
+        positionNorm += ((pnsqX * pnsqX) + (pnsqY * pnsqY));
       }
-      //console.log("positionnorm:"+positionNorm);
+      // console.log("positionnorm:"+positionNorm);
 
       // if norm < limit, then break
       if (positionNorm < this.convergenceLimit) {
         break;
       }
-
     }
 
     if (this.params.constantVelocity) {
       // add current parameter to array of previous parameters
       this.previousParameters.push(this.currentParameters.slice());
-      this.previousParameters.splice(0, this.previousParameters.length == 3 ? 1 : 0);
+      this.previousParameters.splice(0, this.previousParameters.length === 3 ? 1 : 0);
     }
 
     // store positions, for checking convergence
-    this.previousPositions.splice(0, this.previousPositions.length == 10 ? 1 : 0);
+    this.previousPositions.splice(0, this.previousPositions.length === 10 ? 1 : 0);
     this.previousPositions.push(this.currentPositions.slice(0));
 
     // send an event on each iteration
@@ -709,7 +783,7 @@ export default class Tracker extends EventEmitter {
   reset () {
     this.first = true;
     this.scoringHistory = [];
-    for (var i = 0;i < this.currentParameters.length;i++) {
+    for (let i = 0; i < this.currentParameters.length; i++) {
       this.currentParameters[i] = 0;
       this.previousParameters = [];
     }
@@ -722,27 +796,27 @@ export default class Tracker extends EventEmitter {
    */
   draw (canvas, pv, path) {
     // if no previous points, just draw in the middle of canvas
-    var params;
+    let params;
     if (pv === undefined) {
       params = this.currentParameters.slice(0);
     } else {
       params = pv.slice(0);
     }
 
-    var cc = canvas.getContext('2d');
-    cc.fillStyle = "rgb(200,200,200)";
-    cc.strokeStyle = "rgb(130,255,50)";
-    //cc.lineWidth = 1;
+    const cc = canvas.getContext('2d');
+    cc.fillStyle = 'rgb(200,200,200)';
+    cc.strokeStyle = 'rgb(130,255,50)';
+    // cc.lineWidth = 1;
 
-    var paths;
+    let paths;
     if (path === undefined) {
       paths = this.model.path.normal;
     } else {
       paths = this.model.path[path];
     }
 
-    for (var i = 0;i < paths.length;i++) {
-      if (typeof(paths[i]) == 'number') {
+    for (let i = 0; i < paths.length; i++) {
+      if (typeof paths[i] === 'number') {
         this._drawPoint(cc, paths[i], params);
       } else {
         this._drawPath(cc, paths[i], params);
@@ -790,14 +864,14 @@ export default class Tracker extends EventEmitter {
   getConvergence () {
     if (this.previousPositions.length < 10) return 999999;
 
-    var prevX = 0.0;
-    var prevY = 0.0;
-    var currX = 0.0;
-    var currY = 0.0;
+    let prevX = 0.0;
+    let prevY = 0.0;
+    let currX = 0.0;
+    let currY = 0.0;
 
     // average 5 previous positions
-    for (var i = 0;i < 5;i++) {
-      for (var j = 0;j < this.numPatches;j++) {
+    for (let i = 0; i < 5; i++) {
+      for (let j = 0; j < this.numPatches; j++) {
         prevX += this.previousPositions[i][j][0];
         prevY += this.previousPositions[i][j][1];
       }
@@ -806,8 +880,8 @@ export default class Tracker extends EventEmitter {
     prevY /= 5;
 
     // average 5 positions before that
-    for (var i = 5;i < 10;i++) {
-      for (var j = 0;j < this.numPatches;j++) {
+    for (let i = 5; i < 10; i++) {
+      for (let j = 0; j < this.numPatches; j++) {
         currX += this.previousPositions[i][j][0];
         currY += this.previousPositions[i][j][1];
       }
@@ -816,9 +890,9 @@ export default class Tracker extends EventEmitter {
     currY /= 5;
 
     // calculate difference
-    var diffX = currX-prevX;
-    var diffY = currY-prevY;
-    var msavg = ((diffX*diffX) + (diffY*diffY));
+    const diffX = currX - prevX;
+    const diffY = currY - prevY;
+    let msavg = ((diffX * diffX) + (diffY * diffY));
     msavg /= this.previousPositions.length
     return msavg;
   }
@@ -830,33 +904,33 @@ export default class Tracker extends EventEmitter {
    */
   setResponseMode (mode, list) {
     // clmtrackr must be initialized with model first
-    if (typeof(this.model) === "undefined") {
-      console.log("Clmtrackr has not been initialized with a model yet. No changes made.");
+    if (typeof this.model === 'undefined') {
+      console.log('Clmtrackr has not been initialized with a model yet. No changes made.');
       return;
     }
     // must check whether webGL or not
-    if (typeof(this.webglFi) === "undefined") {
-      console.log("Responsemodes are only allowed when using webGL. In pure JS, only 'raw' mode is available.");
+    if (typeof this.webglFi === 'undefined') {
+      console.log('Responsemodes are only allowed when using webGL. In pure JS, only "raw" mode is available.');
       return;
     }
-    if (['single', 'blend', 'cycle'].indexOf(mode) < 0) {
-      console.log("Tried to set an unknown responsemode : '"+mode+"'. No changes made.");
+    if (VALID_RESPONSEMODES.indexOf(mode) < 0) {
+      console.log("Tried to set an unknown responsemode : '" + mode + "'. No changes made.");
       return;
     }
     if (!(list instanceof Array)) {
-      console.log("List in setResponseMode must be an array of strings! No changes made.");
+      console.log('List in setResponseMode must be an array of strings! No changes made.');
       return;
     } else {
-      for (var i = 0;i < list.length;i++) {
-        if (['raw', 'sobel', 'lbp'].indexOf(list[i]) < 0) {
-          console.log("Unknown element in responsemode list : '"+list[i]+"'. No changes made.");
+      for (let i = 0; i < list.length; i++) {
+        if (VALID_RESPONSEMODE_LIST.indexOf(list[i]) < 0) {
+          console.log("Unknown element in responsemode list : '" + list[i] + "'. No changes made.");
         }
         // check whether filters are initialized
-        if (list[i] == 'sobel' && this.sobelInit == false) {
-          console.log("The sobel filters have not been initialized! No changes made.");
+        if (list[i] === 'sobel' && this.sobelInit === false) {
+          console.log('The sobel filters have not been initialized! No changes made.');
         }
-        if (list[i] == 'lbp' && this.lbpInit == false) {
-          console.log("The LBP filters have not been initialized! No changes made.");
+        if (list[i] === 'lbp' && this.lbpInit === false) {
+          console.log('The LBP filters have not been initialized! No changes made.');
         }
       }
     }
@@ -867,36 +941,38 @@ export default class Tracker extends EventEmitter {
   }
 
   _getWebGLResponsesType (type, patches) {
-    if (type == 'lbp') {
+    if (type === 'lbp') {
       return this.webglFi.getLBPResponses(patches);
-    } else if (type == 'raw') {
+    } else if (type === 'raw') {
       return this.webglFi.getRawResponses(patches);
-    } else if (type == 'sobel') {
+    } else if (type === 'sobel') {
       return this.webglFi.getSobelResponses(patches);
     }
   }
 
   _getWebGLResponses (patches) {
-    if (this.responseMode == 'single') {
+    if (this.responseMode === 'single') {
       return this._getWebGLResponsesType(this.responseList[0], patches);
-    } else if (this.responseMode == 'cycle') {
-      var response = this._getWebGLResponsesType(this.responseList[this.responseIndex], patches);
+    } else if (this.responseMode === 'cycle') {
+      const response = this._getWebGLResponsesType(this.responseList[this.responseIndex], patches);
       this.responseIndex++;
       if (this.responseIndex >= this.responseList.length) this.responseIndex = 0;
       return response;
     } else {
       // blend
-      var responses = [];
-      for (var i = 0;i < this.responseList.length;i++) {
+      const responses = [];
+      for (let i = 0; i < this.responseList.length; i++) {
         responses[i] = this._getWebGLResponsesType(this.responseList[i], patches);
       }
-      var blendedResponses = [];
-      for (var i = 0;i < this.numPatches;i++) {
-        var response = Array(this.searchWindow*this.searchWindow);
-        for (var k = 0;k < this.searchWindow*this.searchWindow;k++) response[k] = 0;
-        for (var j = 0;j < this.responseList.length;j++) {
-          for (var k = 0;k < this.searchWindow*this.searchWindow;k++) {
-            response[k] += (responses[j][i][k]/this.responseList.length);
+      const blendedResponses = [];
+      for (let i = 0; i < this.numPatches; i++) {
+        const response = Array(this.searchWindow * this.searchWindow);
+        for (let k = 0; k < this.searchWindow * this.searchWindow; k++) {
+          response[k] = 0;
+        }
+        for (let j = 0; j < this.responseList.length; j++) {
+          for (let k = 0; k < this.searchWindow * this.searchWindow; k++) {
+            response[k] += (responses[j][i][k] / this.responseList.length);
           }
         }
         blendedResponses[i] = response;
@@ -917,33 +993,41 @@ export default class Tracker extends EventEmitter {
       // 1
       j0 = this.meanShape[i][0];
       j1 = this.meanShape[i][1];
-      for (let p = 0;p < this.numParameters;p++) {
-        j0 += parameters[p+4]*eigenVectors[i*2][p];
-        j1 += parameters[p+4]*eigenVectors[(i*2)+1][p];
+      for (let p = 0; p < this.numParameters; p++) {
+        j0 += parameters[p + 4] * eigenVectors[i * 2][p];
+        j1 += parameters[p + 4] * eigenVectors[(i * 2) + 1][p];
       }
-      jacobian[i*2][0] = j0;
-      jacobian[(i*2)+1][0] = j1;
+      jacobian[i * 2][0] = j0;
+      jacobian[(i * 2) + 1][0] = j1;
       // 2
       j0 = this.meanShape[i][1];
       j1 = this.meanShape[i][0];
       for (let p = 0; p < this.numParameters; p++) {
-        j0 += parameters[p+4]*eigenVectors[(i*2)+1][p];
-        j1 += parameters[p+4]*eigenVectors[i*2][p];
+        j0 += parameters[p + 4] * eigenVectors[(i * 2) + 1][p];
+        j1 += parameters[p + 4] * eigenVectors[i * 2][p];
       }
-      jacobian[i*2][1] = -j0;
-      jacobian[(i*2)+1][1] = j1;
+      jacobian[i * 2][1] = -j0;
+      jacobian[(i * 2) + 1][1] = j1;
       // 3
-      jacobian[i*2][2] = 1;
-      jacobian[(i*2)+1][2] = 0;
+      jacobian[i * 2][2] = 1;
+      jacobian[(i * 2) + 1][2] = 0;
       // 4
-      jacobian[i*2][3] = 0;
-      jacobian[(i*2)+1][3] = 1;
+      jacobian[i * 2][3] = 0;
+      jacobian[(i * 2) + 1][3] = 1;
       // the rest
       for (let j = 0; j < this.numParameters; j++) {
-        j0 = parameters[0]*eigenVectors[i*2][j] - parameters[1]*eigenVectors[(i*2)+1][j] + eigenVectors[i*2][j];
-        j1 = parameters[0]*eigenVectors[(i*2)+1][j] + parameters[1]*eigenVectors[i*2][j] + eigenVectors[(i*2)+1][j];
-        jacobian[i*2][j+4] = j0;
-        jacobian[(i*2)+1][j+4] = j1;
+        j0 = (
+          parameters[0] *
+          eigenVectors[i * 2][j] - parameters[1] *
+          eigenVectors[(i * 2) + 1][j] + eigenVectors[i * 2][j]
+        );
+        j1 = (
+          parameters[0] *
+          eigenVectors[(i * 2) + 1][j] + parameters[1] *
+          eigenVectors[i * 2][j] + eigenVectors[(i * 2) + 1][j]
+        );
+        jacobian[i * 2][j + 4] = j0;
+        jacobian[(i * 2) + 1][j + 4] = j1;
       }
     }
 
@@ -955,20 +1039,20 @@ export default class Tracker extends EventEmitter {
     var x, y, a, b;
     var numParameters = parameters.length;
     var positions = [];
-    for (var i = 0;i < this.numPatches;i++) {
+    for (let i = 0; i < this.numPatches; i++) {
       x = this.meanShape[i][0];
       y = this.meanShape[i][1];
-      for (var j = 0;j < numParameters-4;j++) {
-        x += this.model.shapeModel.eigenVectors[(i*2)][j]*parameters[j+4];
-        y += this.model.shapeModel.eigenVectors[(i*2)+1][j]*parameters[j+4];
+      for (let j = 0; j < numParameters - 4; j++) {
+        x += this.model.shapeModel.eigenVectors[(i * 2)][j] * parameters[j + 4];
+        y += this.model.shapeModel.eigenVectors[(i * 2) + 1][j] * parameters[j + 4];
       }
       if (useTransforms) {
-        a = parameters[0]*x - parameters[1]*y + parameters[2];
-        b = parameters[0]*y + parameters[1]*x + parameters[3];
+        a = parameters[0] * x - parameters[1] * y + parameters[2];
+        b = parameters[0] * y + parameters[1] * x + parameters[3];
         x += a;
         y += b;
       }
-      positions[i] = [x,y];
+      positions[i] = [x, y];
     }
 
     return positions;
@@ -1007,48 +1091,62 @@ export default class Tracker extends EventEmitter {
 
   // calculate score of current fit
   _checkTracking () {
-    this.scoringContext.drawImage(this.sketchCanvas, Math.round(this.msxmin+(this.msmodelwidth/4.5)), Math.round(this.msymin-(this.msmodelheight/12)), Math.round(this.msmodelwidth-(this.msmodelwidth*2/4.5)), Math.round(this.msmodelheight-(this.msmodelheight/12)), 0, 0, 20, 22);
+    this.scoringContext.drawImage(
+      this.sketchCanvas,
+      Math.round(this.msxmin + (this.msmodelwidth / 4.5)),
+      Math.round(this.msymin - (this.msmodelheight / 12)),
+      Math.round(this.msmodelwidth - (this.msmodelwidth * 2 / 4.5)),
+      Math.round(this.msmodelheight - (this.msmodelheight / 12)),
+      0,
+      0,
+      20,
+      22
+    );
     // getImageData of canvas
-    var imgData = this.scoringContext.getImageData(0,0,20,22);
+    var imgData = this.scoringContext.getImageData(0, 0, 20, 22);
     // convert data to grayscale
-    var scoringData = new Array(20*22);
+    var scoringData = new Array(20 * 22);
     var scdata = imgData.data;
     var scmax = 0;
-    for (var i = 0;i < 20*22;i++) {
-      scoringData[i] = scdata[i*4]*0.3 + scdata[(i*4)+1]*0.59 + scdata[(i*4)+2]*0.11;
-      scoringData[i] = Math.log(scoringData[i]+1);
+    for (let i = 0; i < 20 * 22; i++) {
+      scoringData[i] = (
+        scdata[i * 4] * 0.3 +
+        scdata[(i * 4) + 1] * 0.59 +
+        scdata[(i * 4) + 2] * 0.11
+      );
+      scoringData[i] = Math.log(scoringData[i] + 1);
       if (scoringData[i] > scmax) scmax = scoringData[i];
     }
 
     if (scmax > 0) {
       // normalize & multiply by svmFilter
       var mean = 0;
-      for (var i = 0;i < 20*22;i++) {
+      for (let i = 0; i < 20 * 22; i++) {
         mean += scoringData[i];
       }
-      mean /= (20*22);
+      mean /= (20 * 22);
       var sd = 0;
-      for (var i = 0;i < 20*22;i++) {
-        sd += (scoringData[i]-mean)*(scoringData[i]-mean);
+      for (let i = 0; i < 20 * 22; i++) {
+        sd += (scoringData[i] - mean) * (scoringData[i] - mean);
       }
-      sd /= (20*22 - 1)
+      sd /= (20 * 22 - 1)
       sd = Math.sqrt(sd);
 
       var score = 0;
-      for (var i = 0;i < 20*22;i++) {
-        scoringData[i] = (scoringData[i]-mean)/sd;
-        score += (scoringData[i])*this.scoringWeights[i];
+      for (let i = 0; i < 20 * 22; i++) {
+        scoringData[i] = (scoringData[i] - mean) / sd;
+        score += (scoringData[i]) * this.scoringWeights[i];
       }
       score += this.scoringBias;
-      score = 1/(1+Math.exp(-score));
+      score = 1 / (1 + Math.exp(-score));
 
-      this.scoringHistory.splice(0, this.scoringHistory.length == 5 ? 1 : 0);
+      this.scoringHistory.splice(0, this.scoringHistory.length === 5 ? 1 : 0);
       this.scoringHistory.push(score);
 
       if (this.scoringHistory.length > 4) {
         // get average
         this.meanscore = 0;
-        for (var i = 0;i < 5;i++) {
+        for (let i = 0; i < 5; i++) {
           this.meanscore += this.scoringHistory[i];
         }
         this.meanscore /= 5;
@@ -1063,7 +1161,12 @@ export default class Tracker extends EventEmitter {
   _getInitialPosition (element, box, callback, det) {
     var translateX, translateY, scaling, rotation;
     if (box) {
-      this.candidate = {x : box[0], y : box[1], width : box[2], height : box[3]};
+      this.candidate = {
+        x: box[0],
+        y: box[1],
+        width: box[2],
+        height: box[3]
+      };
     } else {
       if (!det) {
         this._detectPosition(element, (det) => {
@@ -1162,11 +1265,11 @@ export default class Tracker extends EventEmitter {
       scaling = procrustes_params[2];
       rotation = procrustes_params[3];
 
-      //element.play();
+      // element.play();
 
-      //var maxscale = 1.10;
-      //if ((scaling*modelHeight)/candidate.height < maxscale*0.7) scaling = (maxscale*0.7*candidate.height)/modelHeight;
-      //if ((scaling*modelHeight)/candidate.height > maxscale*1.2) scaling = (maxscale*1.2*candidate.height)/modelHeight;
+      // var maxscale = 1.10;
+      // if ((scaling*modelHeight)/candidate.height < maxscale*0.7) scaling = (maxscale*0.7*candidate.height)/modelHeight;
+      // if ((scaling*modelHeight)/candidate.height > maxscale*1.2) scaling = (maxscale*1.2*candidate.height)/modelHeight;
 
       /*var smean = [0,0];
       smean[0] += lep[0];
@@ -1198,20 +1301,20 @@ export default class Tracker extends EventEmitter {
       canvasContext.closePath();
       canvasContext.fill();*/
 
-      this.currentParameters[0] = (scaling*Math.cos(rotation))-1;
-      this.currentParameters[1] = (scaling*Math.sin(rotation));
+      this.currentParameters[0] = (scaling * Math.cos(rotation)) - 1;
+      this.currentParameters[1] = (scaling * Math.sin(rotation));
       this.currentParameters[2] = translateX;
       this.currentParameters[3] = translateY;
 
-      //this.draw(document.getElementById('overlay'), this.currentParameters);
-
+      // this.draw(document.getElementById('overlay'), this.currentParameters);
     } else {
-      scaling = candidate.width/this.modelheight;
-      //var ccc = document.getElementById('overlay').getContext('2d');
-      //ccc.strokeRect(candidate.x,candidate.y,candidate.width,candidate.height);
-      translateX = candidate.x-(xmin*scaling)+0.1*candidate.width;
-      translateY = candidate.y-(ymin*scaling)+0.25*candidate.height;
-      this.currentParameters[0] = scaling-1;
+      scaling = candidate.width / this.modelheight;
+      // var ccc = document.getElementById('overlay').getContext('2d');
+      // ccc.strokeRect(candidate.x,candidate.y,candidate.width,candidate.height);
+      // FIXME: xmin and ymin are undefined
+      translateX = candidate.x - (xmin * scaling) + 0.1 * candidate.width;
+      translateY = candidate.y - (ymin * scaling) + 0.25 * candidate.height;
+      this.currentParameters[0] = scaling - 1;
       this.currentParameters[2] = translateX;
       this.currentParameters[3] = translateY;
     }
@@ -1225,26 +1328,26 @@ export default class Tracker extends EventEmitter {
   _drawPath (canvasContext, path, dp) {
     canvasContext.beginPath();
     var i, x, y, a, b;
-    for (var p = 0;p < path.length;p++) {
-      i = path[p]*2;
-      x = this.meanShape[i/2][0];
-      y = this.meanShape[i/2][1];
-      for (var j = 0;j < this.numParameters;j++) {
-        x += this.model.shapeModel.eigenVectors[i][j]*dp[j+4];
-        y += this.model.shapeModel.eigenVectors[i+1][j]*dp[j+4];
+    for (let p = 0; p < path.length; p++) {
+      i = path[p] * 2;
+      x = this.meanShape[i / 2][0];
+      y = this.meanShape[i / 2][1];
+      for (let j = 0; j < this.numParameters; j++) {
+        x += this.model.shapeModel.eigenVectors[i][j] * dp[j + 4];
+        y += this.model.shapeModel.eigenVectors[i + 1][j] * dp[j + 4];
       }
-      a = dp[0]*x - dp[1]*y + dp[2];
-      b = dp[0]*y + dp[1]*x + dp[3];
+      a = dp[0] * x - dp[1] * y + dp[2];
+      b = dp[0] * y + dp[1] * x + dp[3];
       x += a;
       y += b;
 
-      if (i == 0) {
-        canvasContext.moveTo(x,y);
+      if (i === 0) {
+        canvasContext.moveTo(x, y);
       } else {
-        canvasContext.lineTo(x,y);
+        canvasContext.lineTo(x, y);
       }
     }
-    canvasContext.moveTo(0,0);
+    canvasContext.moveTo(0, 0);
     canvasContext.closePath();
     canvasContext.stroke();
   }
@@ -1252,19 +1355,19 @@ export default class Tracker extends EventEmitter {
   // draw a point on a canvas
   _drawPoint (canvasContext, point, dp) {
     var i, x, y, a, b;
-    i = point*2;
-    x = this.meanShape[i/2][0];
-    y = this.meanShape[i/2][1];
-    for (var j = 0;j < this.numParameters;j++) {
-      x += this.model.shapeModel.eigenVectors[i][j]*dp[j+4];
-      y += this.model.shapeModel.eigenVectors[i+1][j]*dp[j+4];
+    i = point * 2;
+    x = this.meanShape[i / 2][0];
+    y = this.meanShape[i / 2][1];
+    for (let j = 0; j < this.numParameters; j++) {
+      x += this.model.shapeModel.eigenVectors[i][j] * dp[j + 4];
+      y += this.model.shapeModel.eigenVectors[i + 1][j] * dp[j + 4];
     }
-    a = dp[0]*x - dp[1]*y + dp[2];
-    b = dp[0]*y + dp[1]*x + dp[3];
+    a = dp[0] * x - dp[1] * y + dp[2];
+    b = dp[0] * y + dp[1] * x + dp[3];
     x += a;
     y += b;
     canvasContext.beginPath();
-    canvasContext.arc(x, y, 1, 0, Math.PI*2, true);
+    canvasContext.arc(x, y, 1, 0, Math.PI * 2, true);
     canvasContext.closePath();
     canvasContext.fill();
   }
