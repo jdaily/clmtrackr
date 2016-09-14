@@ -39,7 +39,7 @@ export const getUserMedia = (
   navigator.webkitGetUserMedia ||
   navigator.mozGetUserMedia ||
   navigator.msGetUserMedia
-);
+).bind(navigator);
 
 
 export const supportsUserMedia = () => {
