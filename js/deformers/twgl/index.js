@@ -1,26 +1,18 @@
 import twgl from 'twgl.js/dist/twgl-full';
 
+import Background from './Background';
+
 
 export default class Deformer {
   constructor (params = {}) {
-    this._isDebug = params.isDebug;
-    this._debugCanvas = params.debugCanvas;
-
     twgl.setDefaults({ attribPrefix: 'a_' });
 
     this._isLoaded = false;
 
-    this._bgBufferInfo = null;
-    this._bgProgramInfo = null;
-    this._bgElement = null;
-    this._bgTextures = null;
-    this._bgUniforms = null;
+    this.background = new Background(this);
+    this.debug = new Background(this);
 
-    this._debugBufferInfo = null;
-    this._debugProgramInfo = null;
-    this._debugTextures = null;
-    this._debugUniforms = null;
-
+    this._tracker = null;
     this._gl = null;
 
     this._pdmModel = null;
@@ -36,103 +28,25 @@ export default class Deformer {
     return this._gl;
   }
 
-  _initBgData () {
-    const gl = this.getGLContext();
-
-    this._bgBufferInfo = twgl.createBufferInfoFromArrays(gl, {
-      position: {
-        numComponents: 2,
-        data: [ -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, 1, -1 ]
-      },
-      texcoord: {
-        numComponents: 2,
-        data: [ 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1 ]
-      }
-    });
-
-    this._bgProgramInfo = twgl.createProgramInfo(gl, [
-      require('raw!./shaders/background.vert'),
-      require('raw!./shaders/background.frag')
-    ]);
-
-    const ctx = document.createElement('canvas').getContext('2d');
-    ctx.canvas.width = this._bgElement.width;
-    ctx.canvas.height = this._bgElement.height;
-
-    this._bgTextures = twgl.createTextures(gl, {
-      video: { src: ctx.canvas }
-    });
-
-    this._bgUniforms = {
-      u_sampler: this._bgTextures.video
-    };
-  }
-
-  _initDebugData () {
-    const gl = this.getGLContext();
-
-    this._debugBufferInfo = twgl.createBufferInfoFromArrays(gl, {
-      position: {
-        numComponents: 2,
-        data: [ -1, 1, -1, -1, 1, -1, -1, 1, 1, 1, 1, -1 ]
-      },
-      texcoord: {
-        numComponents: 2,
-        data: [ 0, 0, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1 ]
-      }
-    });
-
-    this._debugProgramInfo = twgl.createProgramInfo(gl, [
-      require('raw!./shaders/background.vert'),
-      require('raw!./shaders/background.frag')
-    ]);
-
-    this._debugTextures = twgl.createTextures(gl, {
-      canvas: { src: this._debugCanvas }
-    });
-
-    this._debugUniforms = {
-      u_sampler: this._debugTextures.canvas
-    };
-  }
-
   init (canvas) {
     // FIXME: this is from svmfilter_webgl, import it
     this._gl = getWebGLContext(canvas); // eslint-disable-line
   }
 
-  loadTexture (texPath, points, pModel, vertices, bgElement) {
+  loadTexture (texPath, points, tracker, bgElement) {
     let element = document.createElement('img');
     element.src = texPath;
     element.addEventListener('load', () => {
-      this.load(element, points, pModel, vertices, bgElement);
+      this.load(element, points, tracker, bgElement);
     }, false);
   }
 
-  load (element, points, pModel, vertices, bgElement) {
-    const gl = this.getGLContext();
-
-    this._bgElement = bgElement;
-
-    if (this._bgElement) {
-      this._initBgData();
-    }
-
-    if (this._isDebug) {
-      this._initDebugData();
-    }
-
-    this._pdmModel = pModel;
-
+  load (element, points, tracker, bgElement) {
+    this._tracker = tracker;
+    this.background.setElement(bgElement);
+    this._pdmModel = tracker.model;
     // Set verts for this mask
-    if (vertices) {
-      this._verticeMap = vertices;
-    } else {
-      this._verticeMap = this._pdmModel.path.vertices;
-    }
-    if (!this._verticeMap) {
-      throw new Error('must provide either vertices or a model with path.vertices');
-    }
+    this._verticeMap = this._pdmModel.path.vertices;
 
     // Find texture cropping from mask points
     let maxx, minx, maxy, miny;
@@ -201,6 +115,7 @@ export default class Deformer {
 
     this._maskTextureCoord = textureVertices;
 
+    const gl = this.getGLContext();
     this._maskProgramInfo = twgl.createProgramInfo(gl, [
       require('raw!./shaders/deform.vert'),
       require('raw!./shaders/deform.frag')
@@ -229,43 +144,12 @@ export default class Deformer {
     }
 
     const gl = this.getGLContext();
-
     twgl.resizeCanvasToDisplaySize(gl.canvas);
-
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
-    if (this._bgElement) {
-      this.drawBackground();
-    }
-
+    this.background.draw();
     this.drawMask(points);
-
-    // @TODO fix white background issue, make it transparent
-    // if (this._isDebug) {
-    //   this.drawDebug();
-    // }
-  }
-
-  drawBackground () {
-    const gl = this.getGLContext();
-
-    gl.useProgram(this._bgProgramInfo.program);
-
-    twgl.setTextureFromElement(gl, this._bgTextures.video, this._bgElement);
-    twgl.setBuffersAndAttributes(gl, this._bgProgramInfo, this._bgBufferInfo);
-    twgl.setUniforms(this._bgProgramInfo, this._bgUniforms);
-    twgl.drawBufferInfo(gl, gl.TRIANGLES, this._bgBufferInfo);
-  }
-
-  drawDebug () {
-    const gl = this.getGLContext();
-
-    gl.useProgram(this._debugProgramInfo.program);
-
-    twgl.setTextureFromElement(gl, this._debugTextures.canvas, this._debugCanvas);
-    twgl.setBuffersAndAttributes(gl, this._debugProgramInfo, this._debugBufferInfo);
-    twgl.setUniforms(this._debugProgramInfo, this._debugUniforms);
-    twgl.drawBufferInfo(gl, gl.TRIANGLES, this._debugBufferInfo);
+    this.debug.draw();
   }
 
   drawMask (points) {
@@ -302,34 +186,6 @@ export default class Deformer {
 
   clear () {
     const gl = this.getGLContext();
-
     gl.clear(gl.COLOR_BUFFER_BIT);
-  }
-
-  calculatePositions (parameters, useTransforms) {
-    if (!this._isLoaded) {
-      return;
-    }
-
-    let x, y, a, b;
-    let numParameters = parameters.length;
-    let positions = [];
-    for (let i = 0; i < this._pdmModel.patchModel.numPatches; i++) {
-      x = this._pdmModel.shapeModel.meanShape[i][0];
-      y = this._pdmModel.shapeModel.meanShape[i][1];
-      for (let j = 0; j < numParameters - 4; j++) {
-        x += this._pdmModel.shapeModel.eigenVectors[(i * 2)][j] * parameters[j + 4];
-        y += this._pdmModel.shapeModel.eigenVectors[(i * 2) + 1][j] * parameters[j + 4];
-      }
-      if (useTransforms) {
-        a = parameters[0] * x - parameters[1] * y + parameters[2];
-        b = parameters[0] * y + parameters[1] * x + parameters[3];
-        x += a;
-        y += b;
-      }
-      positions[i] = [x, y];
-    }
-
-    return positions;
   }
 }
