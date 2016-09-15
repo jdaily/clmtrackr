@@ -28,6 +28,9 @@ export default class JsfeatFace extends EventEmitter {
   }
 
   findFace (image) {
+    if (!image) {
+      throw new Error('Image is falsey');
+    }
     if (this._waitingForResponse) {
       throw new Error('Already finding face');
     }
