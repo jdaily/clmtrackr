@@ -1,14 +1,26 @@
-import React from 'react';
+import React, { PropTypes } from 'react';
+import { connect } from 'react-redux';
 
 import MenuDrawer from './MenuDrawer';
-import SimpleExample from './simple';
+import SimpleExample from './SimpleExample';
+import ClmImageExample from './ClmImageExample';
 
 import './App.styl'
 
+const EXAMPLE_TO_CMPT = {
+  simple: SimpleExample,
+  clmImage: ClmImageExample
+}
 
-export default class App extends React.Component {
+class App extends React.Component {
   render () {
-    const example = <SimpleExample />;
+    const exampleCtor = EXAMPLE_TO_CMPT[this.props.activeExample];
+    let example;
+    if (exampleCtor) {
+      example = React.createElement(exampleCtor);
+    } else {
+      example = <h1>Coming Soon!</h1>;
+    }
 
     return (
       <div className='app-cmpt'>
@@ -20,3 +32,19 @@ export default class App extends React.Component {
     );
   }
 }
+
+App.propTypes = {
+  activeExample: PropTypes.string
+};
+
+const mapStateToProps = state => {
+  return {
+    activeExample: state.examples.activeExample
+  };
+};
+
+const mapDispatchToProps = dispatch => {
+  return { };
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(App);

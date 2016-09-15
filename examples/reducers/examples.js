@@ -5,6 +5,22 @@ export const EXAMPLES = [
   {
     id: 'simple',
     name: 'Simple'
+  },
+  {
+    id: 'clmImage',
+    name: 'Clm Image'
+  },
+  {
+    id: 'clmVideo',
+    name: 'Clm Video'
+  },
+  {
+    id: 'faceDeformationVideo',
+    name: 'Face Deformation Video'
+  },
+  {
+    id: 'faceMask',
+    name: 'Face Mask'
   }
 ];
 
@@ -25,14 +41,14 @@ export const setExample = (example) => {
 
 // The reducers
 const DEFAULT_STATE = {
-  activeExample: EXAMPLES[0].id
+  activeExample: EXAMPLES[1].id
 };
 
 export default function (state = DEFAULT_STATE, action) {
   switch (action.type) {
     case SET_EXAMPLE:
       return Object.assign({}, state, {
-        activeExmaple: action.value
+        activeExample: action.value
       });
     default:
       return state

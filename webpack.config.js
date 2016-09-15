@@ -16,7 +16,8 @@ const config = {
   },
   resolve: {
     alias: {
-      'clmtrackr': path.resolve(__dirname)
+      'clmtrackr': path.resolve(__dirname),
+      'stats.js': path.resolve(__dirname, 'lib', 'stats.js')
     }
   },
   module: {

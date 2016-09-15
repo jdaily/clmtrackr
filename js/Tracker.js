@@ -163,6 +163,8 @@ export default class Tracker extends EventEmitter {
     this.pointWeights = undefined;
 
     this.jsfeatFace = new JsfeatFace();
+
+    this._running = false;
   }
 
   /*
@@ -382,6 +384,12 @@ export default class Tracker extends EventEmitter {
     }
     // start named timeout function
     this.runnerTimeout = requestAnimFrame(this._runnerFunction.bind(this));
+    this._running = true;
+    this.emit('started');
+  }
+
+  getIsRunning () {
+    return this._running;
   }
 
   _runnerFunction () {
@@ -401,6 +409,8 @@ export default class Tracker extends EventEmitter {
   stop () {
     // stop the running tracker if any exists
     cancelRequestAnimFrame(this.runnerTimeout);
+    this._running = false;
+    this.emit('stopped');
   }
 
   recheck () {

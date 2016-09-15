@@ -4,8 +4,8 @@
   "description": "Javascript library for precise tracking of facial features via Constrained Local Models",
   "scripts": {
     "build": "webpack --optimize-minimize --optimize-dedupe",
-    "watch": "webpack --debug --devtool eval-cheap-module-source-map --output-pathinfo --progress --colors --watch",
-    "serve": "webpack-dev-server --debug --devtool eval-cheap-module-source-map --output-pathinfo --inline --hot --host localhost",
+    "watch": "webpack --debug --devtool inline-source-map --output-pathinfo --progress --colors --watch",
+    "serve": "webpack-dev-server --debug --devtool inline-source-map --output-pathinfo --inline --hot --host localhost",
     "clean": "rm -rf dist",
     "postinstall": "npm run build"
   },
@@ -24,7 +24,6 @@
     "getusermedia": "^1.3.5",
     "json-loader": "^0.5.4",
     "raf": "^3.1.0",
-    "stats.js": "0.0.14-master",
     "stylus": "^0.54.5",
     "stylus-loader": "^2.3.1",
     "twgl.js": "^1.9.0",
@@ -36,6 +35,7 @@
   "dependencies": {
     "classnames": "^2.2.5",
     "jsfeat": "git+https://github.com/inspirit/jsfeat#f584f93c78b5085ef141eb1dc66d9d06a7123ec3",
+    "lodash": "^4.15.0",
     "material-design-color": "^2.3.1",
     "material-ui": "^0.15.4",
     "numeric": "^1.2.6",
