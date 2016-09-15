@@ -1,9 +1,11 @@
 'use strict';
 const path = require('path');
+const nib = require('nib');
 
-module.exports = {
+const config = {
   entry: {
-    clmtrackr: './js/index.js'
+    clmtrackr: path.resolve(__dirname, 'js'),
+    examples: path.resolve(__dirname, 'examples')
   },
   output: {
     filename: '[name].js',
@@ -11,6 +13,11 @@ module.exports = {
     publicPath: '/dist/',
     libraryTarget: 'umd',
     library: 'clm'
+  },
+  resolve: {
+    alias: {
+      'clmtrackr': path.resolve(__dirname)
+    }
   },
   module: {
     loaders: [
@@ -28,9 +35,23 @@ module.exports = {
         // include: path.join(__dirname, 'src'),
         exclude: /(node_modules)/,
         query: {
-          presets: ['es2015']
+          presets: ['es2015', 'react']
         }
       }
     ]
+  },
+  stylus: {
+    use: [nib()],
+    import: ['~nib/lib/nib/index.styl'],
+    preferPathResolver: 'webpack'
   }
 };
+
+// Use normal style-loader in dev (hot reload css)
+config.module.loaders.push({
+  test: /\.styl$/,
+  loader: 'style-loader!css-loader!stylus-loader'
+});
+
+
+module.exports = config;

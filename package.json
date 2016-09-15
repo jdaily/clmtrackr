@@ -25,6 +25,8 @@
     "json-loader": "^0.5.4",
     "raf": "^3.1.0",
     "stats.js": "0.0.14-master",
+    "stylus": "^0.54.5",
+    "stylus-loader": "^2.3.1",
     "twgl.js": "^1.9.0",
     "uglify": "^0.1.5",
     "webpack": "^1.13.2",
@@ -32,7 +34,16 @@
     "worker-loader": "^0.7.1"
   },
   "dependencies": {
+    "classnames": "^2.2.5",
     "jsfeat": "git+https://github.com/inspirit/jsfeat#f584f93c78b5085ef141eb1dc66d9d06a7123ec3",
-    "numeric": "^1.2.6"
+    "material-design-color": "^2.3.1",
+    "material-ui": "^0.15.4",
+    "numeric": "^1.2.6",
+    "react": "^15.3.1",
+    "react-dom": "^15.3.1",
+    "react-redux": "^4.4.5",
+    "react-tap-event-plugin": "^1.0.0",
+    "redux": "^3.6.0",
+    "redux-logger": "^2.6.1"
   }
 }

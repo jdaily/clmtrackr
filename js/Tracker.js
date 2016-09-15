@@ -16,6 +16,7 @@ import leftEyeFilter from './filters/left_eye_filter.json';
 import rightEyeFilter from './filters/right_eye_filter.json';
 import noseFilter from './filters/nose_filter.json';
 
+import modelPca20Svm from '!json!clmtrackr/models/model_pca_20_svm.json';
 
 import {
   requestAnimFrame,
@@ -26,9 +27,13 @@ import procrustes from './utils/procrustes';
 
 
 const halfPI = Math.PI / 2;
+
+const DEFAULT_MODEL = modelPca20Svm;
+
 const HAS_MOSSE_FILTERS = MosseFilter && leftEyeFilter && rightEyeFilter && noseFilter;
 const VALID_RESPONSEMODE_LIST = ['raw', 'sobel', 'lbp'];
 const VALID_RESPONSEMODES = ['single', 'blend', 'cycle'];
+
 
 export default class Tracker extends EventEmitter {
   constructor (params) {
@@ -165,7 +170,7 @@ export default class Tracker extends EventEmitter {
    *
    *  @param  <Object>  pdm model object
    */
-  init (pdmmodel) {
+  init (pdmmodel = DEFAULT_MODEL) {
     this.model = pdmmodel;
 
     // load from model
