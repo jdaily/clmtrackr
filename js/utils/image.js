@@ -58,3 +58,20 @@ export const resizeImage = (image, opts = RESIZE_IMAGE_DEFAULT_OPTS) => {
 
   return { canvas: c, padding: padding };
 }
+
+
+export const getImageData = (element, x, y, width, height) => {
+  let cc;
+  if (element.tagName === 'VIDEO' || element.tagName === 'IMG') {
+    const ca = document.createElement('canvas');
+    ca.width = element.width;
+    ca.height = element.height;
+    cc = ca.getContext('2d');
+    cc.drawImage(element, 0, 0, element.width, element.height);
+  } else if (element.tagName === 'CANVAS') {
+    cc = element.getContext('2d');
+  } else {
+    throw new Error('unknown tagName: ' + element.tagName);
+  }
+  return cc.getImageData(x, y, width, height);
+};
