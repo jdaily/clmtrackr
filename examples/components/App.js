@@ -4,12 +4,14 @@ import { connect } from 'react-redux';
 import MenuDrawer from './MenuDrawer';
 import SimpleExample from './SimpleExample';
 import ClmImageExample from './ClmImageExample';
+import ClmVideoExample from './ClmVideoExample';
 
 import './App.styl'
 
 const EXAMPLE_TO_CMPT = {
   simple: SimpleExample,
-  clmImage: ClmImageExample
+  clmImage: ClmImageExample,
+  clmVideo: ClmVideoExample
 }
 
 class App extends React.Component {

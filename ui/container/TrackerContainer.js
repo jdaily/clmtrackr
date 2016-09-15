@@ -2,6 +2,8 @@ import React, { PropTypes } from 'react';
 
 import Stats from 'stats.js/src/Stats';
 
+import { setVideoSrc } from 'clmtrackr/js/utils/video';
+
 import './TrackerContainer.styl';
 
 
@@ -35,11 +37,13 @@ export default class TrackerContainer extends React.Component {
   shouldComponentUpdate (nextProps) {
     return (
       nextProps.tracker !== this.props.tracker ||
-      nextProps.showStats !== this.props.showStats
+      nextProps.showStats !== this.props.showStats ||
+      nextProps.mediaSrc !== this.props.mediaSrc
     );
   }
 
   componentDidUpdate (prevProps) {
+    // Update tracker listeners for stats
     const oldTracker = prevProps.tracker;
     const tracker = this.props.tracker;
     if (!this.props.showStats) {
@@ -50,10 +54,21 @@ export default class TrackerContainer extends React.Component {
         this._addTrackerListeners(tracker);
         // new stats!
         const statsContainer = this.refs.statsContainer;
-        if (!statsContainer) {
-          throw new Error('statsContainer is not available yet');
+        if (statsContainer) {
+          this._stats = new Stats({ container: statsContainer, cssText: '' });
+        } else {
+          console.error('statsContainer is not available yet');
         }
-        this._stats = new Stats({ container: statsContainer, cssText: '' });
+      }
+    }
+    // Check the mediaSrc
+    const mediaType = this.props.mediaType;
+    if (mediaType === 'video') {
+      const videoEl = this.refs.media;
+      const mediaSrc = this.props.mediaSrc;
+      // Lazy check to see if it is a MediaStream
+      if (videoEl && mediaSrc.getVideoTracks) {
+        setVideoSrc(videoEl, mediaSrc);
       }
     }
   }
@@ -62,6 +77,12 @@ export default class TrackerContainer extends React.Component {
     const mediaType = this.props.mediaType;
     let media;
     if (mediaType === 'video') {
+      const mediaSrc = this.props.mediaSrc;
+      let videoSource;
+      if (typeof mediaSrc === 'string' && mediaSrc) {
+        videoSource = <source src={mediaSrc} />;
+      }
+
       media = (
         <video
           className='media'
@@ -70,7 +91,7 @@ export default class TrackerContainer extends React.Component {
           loop
           {...this.props.mediaSize}
         >
-          <source src={this.props.mediaSrc} type='video/ogg'/>
+          {videoSource}
         </video>
       );
     } else if (mediaType === 'image') {
@@ -103,7 +124,7 @@ export default class TrackerContainer extends React.Component {
 
 TrackerContainer.propTypes = {
   mediaType: PropTypes.string.isRequired,
-  mediaSrc: PropTypes.string,
+  mediaSrc: PropTypes.any,
   mediaSize: PropTypes.object.isRequired,
   showStats: PropTypes.bool,
   tracker: PropTypes.any

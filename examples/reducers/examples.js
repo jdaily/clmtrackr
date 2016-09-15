@@ -41,7 +41,7 @@ export const setExample = (example) => {
 
 // The reducers
 const DEFAULT_STATE = {
-  activeExample: EXAMPLES[1].id
+  activeExample: EXAMPLES[2].id
 };
 
 export default function (state = DEFAULT_STATE, action) {
