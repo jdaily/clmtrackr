@@ -1,4 +1,4 @@
-import twgl from 'twgl.js/dist/twgl-full';
+import twgl from 'twgl.js/dist/twgl';
 
 import { getImageData } from '../../utils/image';
 import { getBoundingBox } from '../../utils/points';

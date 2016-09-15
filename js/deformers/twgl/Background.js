@@ -1,4 +1,4 @@
-import twgl from 'twgl.js/dist/twgl-full';
+import twgl from 'twgl.js/dist/twgl';
 
 import createBgVert from './shaders/background.vert';
 import createBgFrag from './shaders/background.frag';
