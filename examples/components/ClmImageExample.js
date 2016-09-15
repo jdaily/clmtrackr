@@ -1,5 +1,6 @@
 import React from 'react';
 import classNames from 'classnames';
+import ReactCrop from 'react-image-crop';
 
 import RaisedButton from 'material-ui/RaisedButton';
 
@@ -9,6 +10,8 @@ import { requestAnimFrame, cancelRequestAnimFrame } from 'clmtrackr/js/utils/ani
 
 import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
+import '!style!css!react-image-crop/dist/ReactCrop.css';
+
 import './ClmImageExample.styl';
 
 
@@ -16,7 +19,7 @@ const MEDIA_SRC = 'media/franck_02159.jpg';
 const MEDIA_SIZE = { width: 625, height: 500 };
 
 
-export default class SimpleExample extends React.Component {
+export default class ClmImageExample extends React.Component {
   constructor () {
     super();
     this.state = {
@@ -28,7 +31,9 @@ export default class SimpleExample extends React.Component {
       convergenceStatus: '',
 
       fileList: [],
-      fileIndex: 0
+      fileIndex: 0,
+
+      cropActive: false
     };
 
     this._boundOnFrame = this._onFrame.bind(this);
@@ -89,15 +94,28 @@ export default class SimpleExample extends React.Component {
     requestAnimFrame(this._boundOnFrame);
   }
 
-  _start (e) {
+  _start (box) {
+    this._resetTracker();
     const trackerContainer = this.refs.trackerContainer;
     const tracker = this.state.tracker;
-    tracker.start(trackerContainer.refs.media);
+    tracker.start(trackerContainer.refs.media, box);
     this._onFrame();
   }
 
   _selectBox (e) {
-    alert('Coming soon!');
+    this._resetTracker();
+    this.setState({ cropActive: true });
+  }
+
+  _selectComplete (crop, pixelCrop) {
+    const box = [
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height
+    ];
+    this._start(box);
+    this.setState({ cropActive: false });
   }
 
   _selectFile (e) {
@@ -124,8 +142,18 @@ export default class SimpleExample extends React.Component {
     setTimeout(() => { this._loadImage(); });
   }
 
+  _resetTracker () {
+    const tracker = this.state.tracker;
+    const trackerContainer = this.refs.trackerContainer;
+    const overlayCC = trackerContainer.refs.canvas.getContext('2d');
+    overlayCC.clearRect(0, 0, MEDIA_SIZE.width, MEDIA_SIZE.height);
+    this.setState({ convergenceText: 'n/a', convergenceStatus: '' });
+    tracker.stop();
+    tracker.reset();
+  }
+
   _loadImage () {
-    const { fileList, fileIndex, tracker } = this.state;
+    const { fileList, fileIndex } = this.state;
     if (fileList.indexOf(fileIndex) >= 0) { return; }
 
     const reader = new FileReader();
@@ -135,12 +163,7 @@ export default class SimpleExample extends React.Component {
     };
     reader.readAsDataURL(fileList[fileIndex]);
 
-    const trackerContainer = this.refs.trackerContainer;
-    const overlayCC = trackerContainer.refs.canvas.getContext('2d');
-    overlayCC.clearRect(0, 0, MEDIA_SIZE.width, MEDIA_SIZE.height);
-    this.setState({ convergenceText: 'n/a', convergenceStatus: '' });
-    tracker.stop();
-    tracker.reset();
+    this._resetTracker();
   }
 
   render () {
@@ -149,24 +172,46 @@ export default class SimpleExample extends React.Component {
       loadImageText = <p>To try it out with your own image, choose a file above by clicking "choose file". If the tracking has problems, try selecting the face in the image manually by clicking "manually select face", and click and hold to drag a square around the face in the image.</p>;
     }
 
+    let crop;
+    if (this.state.cropActive) {
+      const trackerContainer = this.refs.trackerContainer;
+      const mediaData = trackerContainer.refs.media.toDataURL('image/jpeg');
+      const cropCb = this._selectComplete.bind(this);
+      crop = (
+        <div className='crop-wrapper'>
+          <ReactCrop
+            src={mediaData}
+            onComplete={(...args) => {
+              // Set timeout to avoid state error in ReactCrop
+              setTimeout(() => { cropCb(...args) });
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
       <div className='clm-image-example-cmpt'>
-        <h1>Tracking a video tag</h1>
+        <h1>Tracking in an image</h1>
 
-        <TrackerContainer
-          ref='trackerContainer'
-          mediaType={'image'}
-          mediaSrc={MEDIA_SRC}
-          mediaSize={MEDIA_SIZE}
-          showStats={true}
-          tracker={this.state.tracker}
-        />
+        <div className='media-container'>
+          <TrackerContainer
+            ref='trackerContainer'
+            mediaType={'image'}
+            mediaSrc={MEDIA_SRC}
+            mediaSize={MEDIA_SIZE}
+            showStats={true}
+            tracker={this.state.tracker}
+          />
+
+          {crop}
+        </div>
 
         <div className='control-row'>
           <div>
             <RaisedButton
               label='start'
-              onClick={this._start.bind(this)}
+              onClick={() => this._start()}
               disabled={this.state.isTrackerRunning}
             />
             <RaisedButton
