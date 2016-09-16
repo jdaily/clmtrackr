@@ -6,6 +6,7 @@ import SimpleExample from './SimpleExample';
 import ClmImageExample from './ClmImageExample';
 import ClmVideoExample from './ClmVideoExample';
 import FaceDeformationVideoExample from './FaceDeformationVideoExample';
+import FaceMaskExample from './FaceMaskExample';
 
 import './App.styl'
 
@@ -14,7 +15,8 @@ const EXAMPLE_TO_CMPT = {
   simple: SimpleExample,
   clmImage: ClmImageExample,
   clmVideo: ClmVideoExample,
-  faceDeformationVideo: FaceDeformationVideoExample
+  faceDeformationVideo: FaceDeformationVideoExample,
+  faceMask: FaceMaskExample
 }
 
 

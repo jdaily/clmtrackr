@@ -12,6 +12,8 @@ export default class TrackerContainer extends React.Component {
     super();
     this._stats = null;
     this._boundUpdateStats = this._updateStats.bind(this);
+
+    this._mediaSrcStream = null;
   }
 
   _updateStats () {
@@ -62,13 +64,30 @@ export default class TrackerContainer extends React.Component {
       }
     }
     // Check the mediaSrc
+    this._updateVideoSrc();
+  }
+
+  _updateVideoSrc () {
     const mediaType = this.props.mediaType;
-    if (mediaType === 'video') {
-      const videoEl = this.refs.media;
-      const mediaSrc = this.props.mediaSrc;
-      // Lazy check to see if it is a MediaStream
-      if (videoEl && mediaSrc && mediaSrc.getVideoTracks) {
-        setVideoSrc(videoEl, mediaSrc);
+    if (mediaType !== 'video') { return; }
+    const videoEl = this.refs.media;
+    const mediaSrc = this.props.mediaSrc;
+    // Lazy check to see if it is a MediaStream
+    if (videoEl && mediaSrc && mediaSrc.getVideoTracks) {
+      this._mediaSrcStream = mediaSrc;
+      setVideoSrc(videoEl, mediaSrc);
+    } else {
+      // Shut down video stream (if it has been set)
+      if (this._mediaSrcStream) {
+        const tracks = this._mediaSrcStream.getVideoTracks();
+        tracks.forEach(track => track.stop());
+        this._mediaSrcStream = null;
+      }
+      if (videoEl.src) {
+        videoEl.removeAttribute('src');
+      }
+      if (mediaSrc) {
+        videoEl.src = mediaSrc;
       }
     }
   }
@@ -77,12 +96,6 @@ export default class TrackerContainer extends React.Component {
     const mediaType = this.props.mediaType;
     let media;
     if (mediaType === 'video') {
-      const mediaSrc = this.props.mediaSrc;
-      let videoSource;
-      if (typeof mediaSrc === 'string' && mediaSrc) {
-        videoSource = <source src={mediaSrc} />;
-      }
-
       media = (
         <video
           className='media'
@@ -90,9 +103,7 @@ export default class TrackerContainer extends React.Component {
           autoPlay
           loop
           {...this.props.mediaSize}
-        >
-          {videoSource}
-        </video>
+        />
       );
     } else if (mediaType === 'image') {
       media = (

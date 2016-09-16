@@ -129,6 +129,10 @@ export default class Deformer {
   }
 
   setPoints (points) {
+    if (!points) {
+      throw new Error('points is falsey');
+    }
+
     // Find texture cropping from mask points
     this._pointBB = getBoundingBox(points);
 
@@ -158,7 +162,7 @@ export default class Deformer {
   load (element, points, tracker, bgElement) {
     this.setTracker(tracker);
     this.setMaskTexture(element);
-    this.setPoints(points);
+    points && this.setPoints(points);
 
     this.background.setElement(bgElement);
 
