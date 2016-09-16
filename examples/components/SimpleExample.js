@@ -1,6 +1,10 @@
 import React from 'react';
 
 import Tracker from 'clmtrackr/js/Tracker';
+import {
+  requestAnimFrame,
+  cancelRequestAnimFrame
+} from 'clmtrackr/js/utils/anim';
 
 import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
@@ -18,6 +22,8 @@ export default class SimpleExample extends React.Component {
       tracker: null,
       points: null
     };
+
+    this._animateRequestId = null;
   }
 
   componentDidMount () {
@@ -28,7 +34,17 @@ export default class SimpleExample extends React.Component {
     const trackerContainer = this.refs.trackerContainer;
     tracker.start(trackerContainer.refs.media);
 
-    requestAnimationFrame(this._onFrame.bind(this));
+    setTimeout(() => this._onFrame());
+  }
+
+  componentWillUnmount () {
+    const tracker = this.state.tracker;
+    tracker.stop();
+
+    if (this._animateRequestId) {
+      cancelRequestAnimFrame(this._animateRequestId);
+      this._animateRequestId = null;
+    }
   }
 
   _onFrame () {
@@ -43,7 +59,7 @@ export default class SimpleExample extends React.Component {
       // Update the rendered points
       this.setState({ points: tracker.getCurrentPosition() });
     }
-    requestAnimationFrame(this._onFrame.bind(this));
+    this._animateRequestId = requestAnimFrame(this._onFrame.bind(this));
   }
 
   render () {

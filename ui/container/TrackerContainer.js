@@ -27,6 +27,10 @@ export default class TrackerContainer extends React.Component {
     this.componentDidUpdate({ tracker: null });
   }
 
+  componentWillUnmount () {
+    this._shutdownMediaStream();
+  }
+
   _addTrackerListeners (tracker) {
     tracker.on('iteration', this._boundUpdateStats);
   }
@@ -67,6 +71,14 @@ export default class TrackerContainer extends React.Component {
     this._updateVideoSrc();
   }
 
+  _shutdownMediaStream () {
+    if (!this._mediaSrcStream) { return; }
+    // Shut down video stream (if it has been set)
+    const tracks = this._mediaSrcStream.getVideoTracks();
+    tracks.forEach(track => track.stop());
+    this._mediaSrcStream = null;
+  }
+
   _updateVideoSrc () {
     const mediaType = this.props.mediaType;
     if (mediaType !== 'video') { return; }
@@ -77,12 +89,7 @@ export default class TrackerContainer extends React.Component {
       this._mediaSrcStream = mediaSrc;
       setVideoSrc(videoEl, mediaSrc);
     } else {
-      // Shut down video stream (if it has been set)
-      if (this._mediaSrcStream) {
-        const tracks = this._mediaSrcStream.getVideoTracks();
-        tracks.forEach(track => track.stop());
-        this._mediaSrcStream = null;
-      }
+      this._shutdownMediaStream();
       if (videoEl.src) {
         videoEl.removeAttribute('src');
       }

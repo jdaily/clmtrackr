@@ -7,7 +7,10 @@ import MenuItem from 'material-ui/MenuItem';
 import VideoExample from './VideoExample';
 
 import Tracker from 'clmtrackr/js/Tracker';
-import { requestAnimFrame } from 'clmtrackr/js/utils/anim';
+import {
+  requestAnimFrame,
+  cancelRequestAnimFrame
+} from 'clmtrackr/js/utils/anim';
 import { MASKS, getMask } from 'clmtrackr/examples/masks';
 import Deformer from 'clmtrackr/js/deformers/twgl';
 
@@ -23,6 +26,7 @@ export default class FaceMaskExample extends VideoExample {
     });
 
     this.mediaSize = { width: 370, height: 288 };
+    this._animateRequestId = null;
   }
 
   newTracker () {
@@ -42,6 +46,14 @@ export default class FaceMaskExample extends VideoExample {
       this.state.tracker.convergenceThreshold = 1.8;
       this._handleMaskChange(MASKS[0].id, true);
     });
+  }
+
+  componentWillUnmount () {
+    super.componentWillUnmount();
+    if (this._animateRequestId) {
+      cancelRequestAnimFrame(this._animateRequestId);
+      this._animateRequestId = null;
+    }
   }
 
   _setupFaceDeformation () {
@@ -79,9 +91,9 @@ export default class FaceMaskExample extends VideoExample {
     var pn = tracker.getConvergence();
     if (pn < 0.4) {
       this._switchMasks();
-      requestAnimFrame(this._drawMaskLoop.bind(this));
+      this._animateRequestId = requestAnimFrame(this._drawMaskLoop.bind(this));
     } else {
-      requestAnimFrame(this._drawGridLoop.bind(this));
+      this._animateRequestId = requestAnimFrame(this._drawGridLoop.bind(this));
     }
   }
 
@@ -95,7 +107,7 @@ export default class FaceMaskExample extends VideoExample {
       const deformer = this.state.deformer;
       deformer.draw(positions);
     }
-    requestAnimFrame(this._drawMaskLoop.bind(this));
+    this._animateRequestId = requestAnimFrame(this._drawMaskLoop.bind(this));
   }
 
   startVideo () {

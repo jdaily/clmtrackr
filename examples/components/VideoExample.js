@@ -11,7 +11,10 @@ import {
   supportsUserMedia,
   loadVideo
 } from 'clmtrackr/js/utils/video';
-import { requestAnimFrame } from 'clmtrackr/js/utils/anim';
+import {
+  requestAnimFrame,
+  cancelRequestAnimFrame
+} from 'clmtrackr/js/utils/anim';
 
 import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
@@ -39,7 +42,7 @@ export default class VideoExample extends React.Component {
     this.oggVideoSrc = 'media/cap13_edit2.ogv';
     this.mp4VideoSrc = 'media/cap13_edit2.mp4';
 
-    this._boundOnFrame = this._onFrame.bind(this);
+    this._onFrameAnimId = null;
   }
 
   newTracker () {
@@ -61,6 +64,17 @@ export default class VideoExample extends React.Component {
     setTimeout(() => {
       this._setupVideoStream();
     });
+  }
+
+  componentWillUnmount () {
+    // Stop tracker
+    const tracker = this.state.tracker;
+    tracker.stop();
+
+    if (this._onFrameAnimId) {
+      cancelRequestAnimFrame(this._onFrameAnimId);
+      this._onFrameAnimId = null;
+    }
   }
 
   _setupVideoStream () {
@@ -99,7 +113,7 @@ export default class VideoExample extends React.Component {
       const tracker = this.state.tracker;
       tracker.draw(trackerContainer.refs.canvas);
     }
-    requestAnimFrame(this._boundOnFrame);
+    this._onFrameAnimId = requestAnimFrame(this._onFrame.bind(this));
   }
 
   _resetTracker () {

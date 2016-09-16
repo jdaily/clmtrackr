@@ -6,7 +6,10 @@ import RaisedButton from 'material-ui/RaisedButton';
 
 import Tracker from 'clmtrackr/js/Tracker';
 import { resizeImage } from 'clmtrackr/js/utils/image';
-import { requestAnimFrame, cancelRequestAnimFrame } from 'clmtrackr/js/utils/anim';
+import {
+  requestAnimFrame,
+  cancelRequestAnimFrame
+} from 'clmtrackr/js/utils/anim';
 
 import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
@@ -36,7 +39,7 @@ export default class ClmImageExample extends React.Component {
       cropActive: false
     };
 
-    this._boundOnFrame = this._onFrame.bind(this);
+    this._animateRequestId = null;
   }
 
   _loadMediaSrc (src) {
@@ -75,11 +78,22 @@ export default class ClmImageExample extends React.Component {
     tracker.on('converged', (event) => {
       this.setState({ convergenceText: 'CONVERGED', convergenceStatus: 'good' });
       // stop drawloop
-      cancelRequestAnimFrame(this._boundOnFrame);
+      cancelRequestAnimFrame(this._animateRequestId);
+      this._animateRequestId = null;
     });
 
     tracker.on('started', () => this.setState({ isTrackerRunning: true }));
     tracker.on('stopped', () => this.setState({ isTrackerRunning: false }));
+  }
+
+  componentWillUnmount () {
+    const tracker = this.state.tracker;
+    tracker.stop();
+
+    if (this._animateRequestId) {
+      cancelRequestAnimFrame(this._animateRequestId);
+      this._animateRequestId = null;
+    }
   }
 
   _onFrame () {
@@ -91,7 +105,7 @@ export default class ClmImageExample extends React.Component {
       cc.clearRect(0, 0, MEDIA_SIZE.width, MEDIA_SIZE.height);
       tracker.draw(cc.canvas);
     }
-    requestAnimFrame(this._boundOnFrame);
+    this._animateRequestId = requestAnimFrame(this._onFrame.bind(this));
   }
 
   _start (box) {
