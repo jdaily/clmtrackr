@@ -50,6 +50,9 @@ export default class Tracker extends EventEmitter {
 
     this.params = params;
 
+    /** @type {Number} Minimum convergence before firing `converged` event. */
+    this.convergenceThreshold = 0.5;
+
     this.numPatches = undefined;
     this.patchSize = undefined;
     this.numParameters = undefined;
@@ -777,7 +780,7 @@ export default class Tracker extends EventEmitter {
     // send an event on each iteration
     this.emit('iteration');
 
-    if (this.getConvergence() < 0.5) {
+    if (this.getConvergence() < this.convergenceThreshold) {
       // we must get a score before we can say we've converged
       if (this.scoringHistory.length >= 5) {
         if (this.params.stopOnConvergence) {

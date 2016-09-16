@@ -5,14 +5,18 @@ import MenuDrawer from './MenuDrawer';
 import SimpleExample from './SimpleExample';
 import ClmImageExample from './ClmImageExample';
 import ClmVideoExample from './ClmVideoExample';
+import FaceDeformationVideoExample from './FaceDeformationVideoExample';
 
 import './App.styl'
+
 
 const EXAMPLE_TO_CMPT = {
   simple: SimpleExample,
   clmImage: ClmImageExample,
-  clmVideo: ClmVideoExample
+  clmVideo: ClmVideoExample,
+  faceDeformationVideo: FaceDeformationVideoExample
 }
+
 
 class App extends React.Component {
   render () {

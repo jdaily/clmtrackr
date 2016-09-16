@@ -1,5 +1,4 @@
 import React from 'react';
-// import classNames from 'classnames';
 
 import RaisedButton from 'material-ui/RaisedButton';
 
@@ -17,13 +16,11 @@ import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
 import '!style!css!react-image-crop/dist/ReactCrop.css';
 
-import './ClmImageExample.styl';
-
 
 const MEDIA_SIZE = { width: 400, height: 300 };
 
 
-export default class ClmImageExample extends React.Component {
+export default class ClmVideoExample extends React.Component {
   constructor () {
     super();
     this.state = {
@@ -149,7 +146,7 @@ export default class ClmImageExample extends React.Component {
     }
 
     return (
-      <div className='clm-image-example-cmpt'>
+      <div className='clm-video-example-cmpt'>
         <h1>Tracking a video tag</h1>
 
         <TrackerContainer

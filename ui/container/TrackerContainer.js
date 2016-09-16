@@ -67,7 +67,7 @@ export default class TrackerContainer extends React.Component {
       const videoEl = this.refs.media;
       const mediaSrc = this.props.mediaSrc;
       // Lazy check to see if it is a MediaStream
-      if (videoEl && mediaSrc.getVideoTracks) {
+      if (videoEl && mediaSrc && mediaSrc.getVideoTracks) {
         setVideoSrc(videoEl, mediaSrc);
       }
     }
@@ -106,9 +106,22 @@ export default class TrackerContainer extends React.Component {
       throw new Error('unknown mediaType: ' + mediaType);
     }
 
+    let deformerCanvas;
+    if (this.props.hasDeformer) {
+      deformerCanvas = (
+        <canvas
+          ref='deformerCanvas'
+          className='overlay'
+          {...this.props.mediaSize}
+        />
+      );
+    }
+
     return (
       <div className='tracker-container-cmpt'>
         {media}
+
+        {deformerCanvas}
 
         <canvas
           ref='canvas'
@@ -127,5 +140,6 @@ TrackerContainer.propTypes = {
   mediaSrc: PropTypes.any,
   mediaSize: PropTypes.object.isRequired,
   showStats: PropTypes.bool,
-  tracker: PropTypes.any
+  tracker: PropTypes.any,
+  hasDeformer: PropTypes.bool
 };

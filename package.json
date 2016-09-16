@@ -40,6 +40,7 @@
     "material-ui": "^0.15.4",
     "numeric": "^1.2.6",
     "react": "^15.3.1",
+    "react-dat-gui": "git+https://github.com/claus/react-dat-gui#843fc34bf8d19fca712dafcfed9f7fd2a16134ff",
     "react-dom": "^15.3.1",
     "react-image-crop": "^1.0.3",
     "react-redux": "^4.4.5",
