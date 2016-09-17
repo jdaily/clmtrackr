@@ -16,6 +16,7 @@ import leftEyeFilter from './filters/left_eye_filter.json';
 import rightEyeFilter from './filters/right_eye_filter.json';
 import noseFilter from './filters/nose_filter.json';
 
+import modelPca20Svm from '!json!clmtrackr/models/model_pca_20_svm.json';
 
 import {
   requestAnimFrame,
@@ -26,9 +27,13 @@ import procrustes from './utils/procrustes';
 
 
 const halfPI = Math.PI / 2;
+
+const DEFAULT_MODEL = modelPca20Svm;
+
 const HAS_MOSSE_FILTERS = MosseFilter && leftEyeFilter && rightEyeFilter && noseFilter;
 const VALID_RESPONSEMODE_LIST = ['raw', 'sobel', 'lbp'];
 const VALID_RESPONSEMODES = ['single', 'blend', 'cycle'];
+
 
 export default class Tracker extends EventEmitter {
   constructor (params) {
@@ -44,6 +49,9 @@ export default class Tracker extends EventEmitter {
     if (params.sharpenResponse === undefined) params.sharpenResponse = false;
 
     this.params = params;
+
+    /** @type {Number} Minimum convergence before firing `converged` event. */
+    this.convergenceThreshold = 0.5;
 
     this.numPatches = undefined;
     this.patchSize = undefined;
@@ -158,6 +166,8 @@ export default class Tracker extends EventEmitter {
     this.pointWeights = undefined;
 
     this.jsfeatFace = new JsfeatFace();
+
+    this._running = false;
   }
 
   /*
@@ -165,7 +175,7 @@ export default class Tracker extends EventEmitter {
    *
    *  @param  <Object>  pdm model object
    */
-  init (pdmmodel) {
+  init (pdmmodel = DEFAULT_MODEL) {
     this.model = pdmmodel;
 
     // load from model
@@ -377,6 +387,12 @@ export default class Tracker extends EventEmitter {
     }
     // start named timeout function
     this.runnerTimeout = requestAnimFrame(this._runnerFunction.bind(this));
+    this._running = true;
+    this.emit('started');
+  }
+
+  getIsRunning () {
+    return this._running;
   }
 
   _runnerFunction () {
@@ -396,6 +412,8 @@ export default class Tracker extends EventEmitter {
   stop () {
     // stop the running tracker if any exists
     cancelRequestAnimFrame(this.runnerTimeout);
+    this._running = false;
+    this.emit('stopped');
   }
 
   recheck () {
@@ -762,7 +780,7 @@ export default class Tracker extends EventEmitter {
     // send an event on each iteration
     this.emit('iteration');
 
-    if (this.getConvergence() < 0.5) {
+    if (this.getConvergence() < this.convergenceThreshold) {
       // we must get a score before we can say we've converged
       if (this.scoringHistory.length >= 5) {
         if (this.params.stopOnConvergence) {

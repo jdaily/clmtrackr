@@ -22,7 +22,8 @@ const RESIZE_IMAGE_DEFAULT_OPTS = {
  * @param  {Object} [opts.padding=50]
  * @param  {Object} [opts.paddingJitter=0.25]
  */
-export const resizeImage = (image, opts = RESIZE_IMAGE_DEFAULT_OPTS) => {
+export const resizeImage = (image, opts) => {
+  opts = Object.assign({}, RESIZE_IMAGE_DEFAULT_OPTS, opts);
   opts.canvas = opts.canvas || document.createElement('canvas');
 
   const c = opts.canvas;
@@ -46,7 +47,7 @@ export const resizeImage = (image, opts = RESIZE_IMAGE_DEFAULT_OPTS) => {
     h = image.height;
   }
 
-  let padding = Math.max(
+  let padding = Math.min(
     Math.max((opts.maxWidth - w) / 2, opts.padding),
     Math.max((opts.maxHeight - h) / 2, opts.padding)
   );

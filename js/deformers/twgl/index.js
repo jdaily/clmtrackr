@@ -35,8 +35,14 @@ export default class Deformer {
   }
 
   init (canvas) {
+    if (!canvas) {
+      throw new Error('canvas parameter is falsey');
+    }
     // FIXME: this is from svmfilter_webgl, import it
     this._gl = getWebGLContext(canvas); // eslint-disable-line
+    if (!this._gl) {
+      throw new Error('Could not get a webgl context; have you already tried getting a 2d context on this canvas?');
+    }
   }
 
   loadTexture (texPath, points, tracker, bgElement) {
@@ -123,6 +129,10 @@ export default class Deformer {
   }
 
   setPoints (points) {
+    if (!points) {
+      throw new Error('points is falsey');
+    }
+
     // Find texture cropping from mask points
     this._pointBB = getBoundingBox(points);
 
@@ -152,7 +162,7 @@ export default class Deformer {
   load (element, points, tracker, bgElement) {
     this.setTracker(tracker);
     this.setMaskTexture(element);
-    this.setPoints(points);
+    points && this.setPoints(points);
 
     this.background.setElement(bgElement);
 
@@ -202,6 +212,10 @@ export default class Deformer {
     twgl.setBuffersAndAttributes(gl, this._maskProgramInfo, this._maskBufferInfo);
     twgl.setUniforms(this._maskProgramInfo, this._maskUniforms);
     twgl.drawBufferInfo(gl, gl.TRIANGLES, this._maskBufferInfo);
+  }
+
+  drawGrid () {
+    // TODO: implement (what is drawGrid?)
   }
 
   clear () {
