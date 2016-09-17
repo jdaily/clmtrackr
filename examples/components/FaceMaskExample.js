@@ -17,6 +17,11 @@ import Deformer from 'clmtrackr/js/deformers/twgl';
 import './FaceMaskExample.styl';
 
 
+import WEBM_VIDEO from '../media/cap13_edit2.webm';
+import OGG_VIDEO from '../media/cap13_edit2.ogv';
+import MP4_VIDEO from '../media/cap13_edit2.mp4';
+
+
 export default class FaceMaskExample extends VideoExample {
   constructor () {
     super();
@@ -27,6 +32,10 @@ export default class FaceMaskExample extends VideoExample {
 
     this.mediaSize = { width: 370, height: 288 };
     this._animateRequestId = null;
+
+    this.webmVideoSrc = WEBM_VIDEO;
+    this.oggVideoSrc = OGG_VIDEO;
+    this.mp4VideoSrc = MP4_VIDEO;
   }
 
   newTracker () {

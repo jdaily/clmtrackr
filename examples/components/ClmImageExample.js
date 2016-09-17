@@ -18,7 +18,7 @@ import '!style!css!react-image-crop/dist/ReactCrop.css';
 import './ClmImageExample.styl';
 
 
-const MEDIA_SRC = 'media/franck_02159.jpg';
+import MEDIA_SRC from '../media/franck_02159.jpg';
 const MEDIA_SIZE = { width: 625, height: 500 };
 
 

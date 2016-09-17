@@ -12,6 +12,10 @@ import Deformer from 'clmtrackr/js/deformers/twgl';
 import './FaceDeformationVideoExample.styl';
 
 
+import WEBM_VIDEO from '../media/franck.webm';
+import OGG_VIDEO from '../media/franck.ogv';
+
+
 export default class FaceDeformationVideoExample extends VideoExample {
   constructor () {
     super();
@@ -23,7 +27,8 @@ export default class FaceDeformationVideoExample extends VideoExample {
     });
 
     this.mediaSize = { width: 370, height: 288 };
-    this.oggVideoSrc = 'media/franck.ogv';
+    this.webmVideoSrc = WEBM_VIDEO;
+    this.oggVideoSrc = OGG_VIDEO;
     this.mp4VideoSrc = null;
   }
 

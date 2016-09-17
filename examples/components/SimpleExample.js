@@ -5,13 +5,17 @@ import {
   requestAnimFrame,
   cancelRequestAnimFrame
 } from 'clmtrackr/js/utils/anim';
+import { SUPPORTED_CODECS } from 'clmtrackr/js/utils/video';
 
 import TrackerContainer from 'clmtrackr/ui/container/TrackerContainer';
 
 import './ClmImageExample.styl';
 
 
-const MEDIA_SRC = 'media/franck.ogv';
+import WEBM_VIDEO from '../media/franck.webm';
+import OGG_VIDEO from '../media/franck.ogv';
+import MP4_VIDEO from '../media/franck.mp4';
+
 const MEDIA_SIZE = { width: 368, height: 288 };
 
 
@@ -22,6 +26,14 @@ export default class SimpleExample extends React.Component {
       tracker: null,
       points: null
     };
+
+    if (SUPPORTED_CODECS.webm) {
+      this.mediaSrc = WEBM_VIDEO;
+    } else if (SUPPORTED_CODECS.ogg) {
+      this.mediaSrc = OGG_VIDEO;
+    } else {
+      this.mediaSrc = MP4_VIDEO;
+    }
 
     this._animateRequestId = null;
   }
@@ -87,7 +99,7 @@ export default class SimpleExample extends React.Component {
         <TrackerContainer
           ref='trackerContainer'
           mediaType={'video'}
-          mediaSrc={MEDIA_SRC}
+          mediaSrc={this.mediaSrc}
           mediaSize={MEDIA_SIZE}
           showStats={true}
           tracker={this.state.tracker}

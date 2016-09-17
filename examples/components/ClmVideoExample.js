@@ -4,6 +4,10 @@ import VideoExample from './VideoExample';
 
 import Tracker from 'clmtrackr/js/Tracker';
 
+import WEBM_VIDEO from '../media/cap12_edit.webm';
+import OGG_VIDEO from '../media/cap12_edit.ogv';
+import MP4_VIDEO from '../media/cap12_edit.mp4';
+
 
 export default class ClmVideoExample extends VideoExample {
   constructor () {
@@ -13,8 +17,9 @@ export default class ClmVideoExample extends VideoExample {
     });
 
     this.mediaSize = { width: 400, height: 300 };
-    this.oggVideoSrc = 'media/cap12_edit.ogv';
-    this.mp4VideoSrc = 'media/cap12_edit.mp4';
+    this.webmVideoSrc = WEBM_VIDEO;
+    this.oggVideoSrc = OGG_VIDEO;
+    this.mp4VideoSrc = MP4_VIDEO;
   }
 
   newTracker () {

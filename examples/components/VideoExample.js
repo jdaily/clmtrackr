@@ -5,9 +5,8 @@ import RaisedButton from 'material-ui/RaisedButton';
 import Toggle from 'material-ui/Toggle';
 
 import {
+  SUPPORTED_CODECS,
   supportsVideo,
-  supportsH264BaselineVideo,
-  supportsOggTheoraVideo,
   supportsUserMedia,
   loadVideo
 } from 'clmtrackr/js/utils/video';
@@ -39,8 +38,9 @@ export default class VideoExample extends React.Component {
     };
 
     this.mediaSize = { width: 400, height: 300 };
-    this.oggVideoSrc = 'media/cap13_edit2.ogv';
-    this.mp4VideoSrc = 'media/cap13_edit2.mp4';
+    this.webmVideoSrc = null;
+    this.oggVideoSrc = null;
+    this.mp4VideoSrc = null;
 
     this._onFrameAnimId = null;
   }
@@ -130,20 +130,18 @@ export default class VideoExample extends React.Component {
   }
 
   _insertAltVideo () {
-    if (supportsVideo()) {
-      if (supportsOggTheoraVideo()) {
-        this.setState({ mediaSrc: this.oggVideoSrc });
-      } else if (supportsH264BaselineVideo()) {
-        if (this.mp4VideoSrc) {
-          this.setState({ mediaSrc: this.mp4VideoSrc });
-        } else {
-          alert('no mp4 video available');
-        }
-      } else {
-        alert('No stock video available for your browser');
-      }
-    } else {
+    if (!supportsVideo()) {
       alert('Your browser does not support video');
+      return;
+    }
+    if (this.webmVideoSrc && SUPPORTED_CODECS.webm) {
+      this.setState({ mediaSrc: this.webmVideoSrc });
+    } else if (this.oggVideoSrc && SUPPORTED_CODECS.ogg) {
+      this.setState({ mediaSrc: this.oggVideoSrc });
+    } else if (this.mp4VideoSrc && SUPPORTED_CODECS.h264) {
+      this.setState({ mediaSrc: this.mp4VideoSrc });
+    } else {
+      alert('No stock video available for your browser');
     }
   }
 

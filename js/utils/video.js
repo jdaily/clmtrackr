@@ -1,3 +1,5 @@
+import _ from 'lodash';
+
 let VIDEO_EL;
 
 const getVideoEl = () => {
@@ -13,20 +15,13 @@ export const supportsVideo = () => {
 };
 
 
-export const supportsH264BaselineVideo = () => {
-  if (!supportsVideo()) {
-    return false;
-  }
-  return getVideoEl().canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"');
-};
-
-
-export const supportsOggTheoraVideo = () => {
-  if (!supportsVideo()) {
-    return false;
-  }
-  return getVideoEl().canPlayType('video/ogg; codecs="theora, vorbis"');
-};
+export const SUPPORTED_CODECS = _.mapValues({
+  ogg: 'video/ogg; codecs="theora, vorbis"',
+  h264: 'video/mp4; codecs="avc1.42E01E, mp4a.40.2"',
+  webm: 'video/webm; codecs="vp8, vorbis"'
+}, (v) => {
+  return supportsVideo() && getVideoEl().canPlayType(v);
+});
 
 
 export const URL = (
