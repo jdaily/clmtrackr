@@ -14,7 +14,7 @@ const config = {
   output: {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
-    publicPath: '/',
+    publicPath: NODE_ENV === 'production' ? '/clmtrackr/' : '/',
     libraryTarget: 'umd',
     library: 'clm'
   },
