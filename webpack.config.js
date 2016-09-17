@@ -1,6 +1,10 @@
 'use strict';
 const path = require('path');
 const nib = require('nib');
+const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 const config = {
   entry: {
@@ -10,7 +14,7 @@ const config = {
   output: {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'),
-    publicPath: '/dist/',
+    publicPath: '/',
     libraryTarget: 'umd',
     library: 'clm'
   },
@@ -38,9 +42,23 @@ const config = {
         query: {
           presets: ['es2015', 'react']
         }
+      },
+      {
+        test: /\.jpe?g$|\.gif$|\.png$|\.svg$|\.woff$|\.ttf$|\.wav$|\.mp3$|\.ogv$|\.mp4$|\.webm$/,
+        loader: 'file'
       }
     ]
   },
+  plugins: [
+    new HtmlWebpackPlugin({
+      title: 'Clmtrackr Examples',
+      template: path.resolve(__dirname, 'examples', 'index.html'),
+      chunks: ['examples']
+    }),
+    new webpack.DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(NODE_ENV)
+    })
+  ],
   stylus: {
     use: [nib()],
     import: ['~nib/lib/nib/index.styl'],

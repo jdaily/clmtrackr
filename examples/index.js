@@ -16,14 +16,11 @@ import reducers from './reducers';
 import MuiThemeProvider from 'material-ui/styles/MuiThemeProvider';
 
 
-const DEV_MODE = location.host.indexOf('localhost') === 0;
-
-
 let store;
-if (DEV_MODE) {
-  store = createStore(reducers, applyMiddleware(createLogger()));
-} else {
+if (process.env.NODE_ENV === 'production') {
   store = createStore(reducers);
+} else {
+  store = createStore(reducers, applyMiddleware(createLogger()));
 }
 
 
