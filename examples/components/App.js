@@ -1,6 +1,8 @@
 import React, { PropTypes } from 'react';
 import { connect } from 'react-redux';
 
+import { getExample } from 'clmtrackr/examples/reducers/examples';
+
 import MenuDrawer from './MenuDrawer';
 import SimpleExample from './SimpleExample';
 import ClmImageExample from './ClmImageExample';
@@ -15,7 +17,7 @@ const EXAMPLE_TO_CMPT = {
   simple: SimpleExample,
   clmImage: ClmImageExample,
   clmVideo: ClmVideoExample,
-  faceDeformationVideo: FaceDeformationVideoExample,
+  faceDeformStill: FaceDeformationVideoExample,
   faceMask: FaceMaskExample
 }
 
@@ -27,7 +29,14 @@ class App extends React.Component {
     if (exampleCtor) {
       example = React.createElement(exampleCtor);
     } else {
-      example = <h1>Coming Soon!</h1>;
+      const curExample = getExample(this.props.activeExample);
+      example = (
+        <div className='coming-soon-wrapper'>
+          <h1>Coming Soon!</h1>
+          <p>The <a href={curExample.original}>original demo</a> is presented below:</p>
+          <iframe src={curExample.original} />
+        </div>
+      );
     }
 
     return (
