@@ -510,16 +510,9 @@ export default class Tracker extends EventEmitter {
     if (this.scoringWeights && (this.facecheck_count % 10 === 0)) {
       if (!this._checkTracking()) {
         // reset all parameters
-        this.first = true;
-        this.scoringHistory = [];
-        for (let i = 0; i < this.currentParameters.length; i++) {
-          this.currentParameters[i] = 0;
-          this.previousParameters = [];
-        }
-
+        this._resetParameters();
         // send event to signal that tracking was lost
         this.emit('lost');
-
         return false;
       }
     }
@@ -795,16 +788,20 @@ export default class Tracker extends EventEmitter {
     return this.currentPositions;
   }
 
+  _resetParameters () {
+    this.first = true;
+    this.scoringHistory = [];
+    this.previousParameters = [];
+    for (let i = 0; i < this.currentParameters.length; i++) {
+      this.currentParameters[i] = 0;
+    }
+  }
+
   /*
    *  reset tracking, so that track() will start a new detection
    */
   reset () {
-    this.first = true;
-    this.scoringHistory = [];
-    for (let i = 0; i < this.currentParameters.length; i++) {
-      this.currentParameters[i] = 0;
-      this.previousParameters = [];
-    }
+    this._resetParameters();
     this.runnerElement = undefined;
     this.runnerBox = undefined;
   }
@@ -1109,6 +1106,9 @@ export default class Tracker extends EventEmitter {
 
   // calculate score of current fit
   _checkTracking () {
+    const trackingImgW = 20;
+    const trackingImgH = 22;
+
     this.scoringContext.drawImage(
       this.sketchCanvas,
       Math.round(this.msxmin + (this.msmodelwidth / 4.5)),
@@ -1117,62 +1117,75 @@ export default class Tracker extends EventEmitter {
       Math.round(this.msmodelheight - (this.msmodelheight / 12)),
       0,
       0,
-      20,
-      22
+      trackingImgW,
+      trackingImgH
     );
     // getImageData of canvas
-    var imgData = this.scoringContext.getImageData(0, 0, 20, 22);
+    var imgData = this.scoringContext.getImageData(0, 0, trackingImgW, trackingImgH);
     // convert data to grayscale
-    var scoringData = new Array(20 * 22);
+    const trackingImgSize = trackingImgW * trackingImgH;
+    var scoringData = new Array(trackingImgSize);
     var scdata = imgData.data;
     var scmax = 0;
-    for (let i = 0; i < 20 * 22; i++) {
+    for (let i = 0; i < trackingImgSize; i++) {
       scoringData[i] = (
         scdata[i * 4] * 0.3 +
         scdata[(i * 4) + 1] * 0.59 +
         scdata[(i * 4) + 2] * 0.11
       );
       scoringData[i] = Math.log(scoringData[i] + 1);
-      if (scoringData[i] > scmax) scmax = scoringData[i];
+      if (scoringData[i] > scmax) {
+        scmax = scoringData[i];
+      }
     }
 
     if (scmax > 0) {
       // normalize & multiply by svmFilter
-      var mean = 0;
-      for (let i = 0; i < 20 * 22; i++) {
-        mean += scoringData[i];
-      }
-      mean /= (20 * 22);
-      var sd = 0;
-      for (let i = 0; i < 20 * 22; i++) {
-        sd += (scoringData[i] - mean) * (scoringData[i] - mean);
-      }
-      sd /= (20 * 22 - 1)
-      sd = Math.sqrt(sd);
+      const mean = this._calcMean(scoringData, trackingImgSize);
+      const sd = this._calcStandardDeviation(scoringData, trackingImgSize, mean);
 
       var score = 0;
-      for (let i = 0; i < 20 * 22; i++) {
+      for (let i = 0; i < trackingImgSize; i++) {
         scoringData[i] = (scoringData[i] - mean) / sd;
-        score += (scoringData[i]) * this.scoringWeights[i];
+        score += scoringData[i] * this.scoringWeights[i];
       }
       score += this.scoringBias;
       score = 1 / (1 + Math.exp(-score));
 
-      this.scoringHistory.splice(0, this.scoringHistory.length === 5 ? 1 : 0);
+      // Keep length === 5
+      if (this.scoringHistory.length >= 5) {
+        this.scoringHistory.splice(0, this.scoringHistory.length - 4);
+      }
       this.scoringHistory.push(score);
 
       if (this.scoringHistory.length > 4) {
         // get average
-        this.meanscore = 0;
-        for (let i = 0; i < 5; i++) {
-          this.meanscore += this.scoringHistory[i];
-        }
-        this.meanscore /= 5;
+        this.meanscore = this._calcMean(this.scoringHistory, 5);
         // if below threshold, then reset (return false)
-        if (this.meanscore < this.params.scoreThreshold) return false;
+        if (this.meanscore < this.params.scoreThreshold) {
+          return false;
+        }
       }
     }
     return true;
+  }
+
+  _calcMean (data, length) {
+    let mean = 0;
+    for (let i = 0; i < length; i++) {
+      mean += data[i];
+    }
+    return mean / length;
+  }
+
+  _calcStandardDeviation (data, length, mean) {
+    let avgSquareDiff = 0;
+    for (let i = 0; i < length; i++) {
+      const diff = data[i] - mean;
+      avgSquareDiff += diff * diff;
+    }
+    avgSquareDiff /= length;
+    return Math.sqrt(avgSquareDiff);
   }
 
   // get initial starting point for model
