@@ -44,8 +44,12 @@ const config = {
         }
       },
       {
-        test: /\.jpe?g$|\.gif$|\.png$|\.svg$|\.woff$|\.ttf$|\.wav$|\.mp3$|\.ogv$|\.mp4$|\.webm$/,
+        test: /\.(jpe?g|gif|png|svg|woff|ttf|wav|mp3|ogv|mp4|webm)$/,
         loader: 'file'
+      },
+      {
+        test: /\.(glsl|vert|frag)$/,
+        loader: 'glsl-template-loader'
       }
     ]
   },

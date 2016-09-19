@@ -4,6 +4,9 @@ import { getImageData } from '../../utils/image';
 import { getBoundingBox } from '../../utils/points';
 import Background from './Background';
 
+import createDeformVert from './shaders/deform.vert';
+import createDeformFrag from './shaders/deform.frag';
+
 
 export default class Deformer {
   constructor (params = {}) {
@@ -168,8 +171,8 @@ export default class Deformer {
 
     const gl = this.getGLContext();
     this._maskProgramInfo = twgl.createProgramInfo(gl, [
-      require('raw!./shaders/deform.vert'),
-      require('raw!./shaders/deform.frag')
+      createDeformVert(),
+      createDeformFrag()
     ]);
 
     this._isLoaded = true;

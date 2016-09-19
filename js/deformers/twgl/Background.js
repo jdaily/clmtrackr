@@ -1,5 +1,8 @@
 import twgl from 'twgl.js/dist/twgl-full';
 
+import createBgVert from './shaders/background.vert';
+import createBgFrag from './shaders/background.frag';
+
 
 export default class Background {
   constructor (deformer) {
@@ -40,8 +43,8 @@ export default class Background {
     });
 
     this._bgProgramInfo = twgl.createProgramInfo(gl, [
-      require('raw!./shaders/background.vert'),
-      require('raw!./shaders/background.frag')
+      createBgVert(),
+      createBgFrag()
     ]);
 
     this._bgTextures = twgl.createTextures(gl, {
