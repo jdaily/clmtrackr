@@ -8,7 +8,8 @@
     "serve": "webpack-dev-server --debug --devtool inline-source-map --output-pathinfo --inline --hot --host localhost",
     "clean": "rm -rf dist",
     "postinstall": "npm run build",
-    "publish": "./publish.sh"
+    "publish": "./publish.sh",
+    "generateModelJsons": "node ./generateModelJsons.js"
   },
   "main": "dist/clmtracker.js",
   "repository": {
