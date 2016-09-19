@@ -301,6 +301,7 @@ export default class Tracker extends EventEmitter {
           if ('lbp' in this.weights) this.lbpInit = true;
           if ('sobel' in this.weights) this.sobelInit = true;
         } catch (err) {
+          console.error(err);
           alert('There was a problem setting up webGL programs, falling back to slightly slower javascript version. :(');
           this.webglFi = undefined;
           this.svmFi = new SvmFilter();
