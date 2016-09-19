@@ -7,8 +7,8 @@ import numeric from 'numeric';
 import MosseFilter from './utils/mosse';
 import MosseFilterResponses from './utils/mosseFilterResponses';
 import JsfeatFace from './jsfeat/JsfeatFace';
-import WebglFilter from './svmfilter_webgl';
-import SvmFilter from './svmfilter_fft';
+import WebglFilter from './svmfilter/svmfilter_webgl';
+import SvmFilter from './svmfilter/svmfilter_fft';
 
 // filters
 // import entireFaceFilter from './filters/entire_face_filter.json';
