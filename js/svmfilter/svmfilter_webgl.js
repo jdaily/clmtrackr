@@ -186,8 +186,7 @@ export default class WebglFilter {
     this.canvas.setAttribute('height', ((this.patchHeight - this.filterHeight + 1) * this.numPatches) + 'px');
     this.canvas.setAttribute('id', 'renderCanvas');
     this.canvas.setAttribute('style', 'display:none;');
-    // FIXME: dont litter the DOM with render canvases
-    document.body.appendChild(this.canvas);
+    // document.body.appendChild(this.canvas);
     const gl = setupWebGL(this.canvas, {
       premultipliedAlpha: false,
       preserveDrawingBuffer: true,
