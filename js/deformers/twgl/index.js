@@ -2,6 +2,7 @@ import twgl from 'twgl.js/dist/twgl';
 
 import { getImageData } from '../../utils/image';
 import { getBoundingBox } from '../../utils/points';
+import { getWebGLContext } from '../../utils/webgl';
 import Background from './Background';
 
 import createDeformVert from './shaders/deform.vert';
@@ -41,8 +42,7 @@ export default class Deformer {
     if (!canvas) {
       throw new Error('canvas parameter is falsey');
     }
-    // FIXME: this is from svmfilter_webgl, import it
-    this._gl = getWebGLContext(canvas); // eslint-disable-line
+    this._gl = getWebGLContext(canvas);
     if (!this._gl) {
       throw new Error('Could not get a webgl context; have you already tried getting a 2d context on this canvas?');
     }
