@@ -17,114 +17,156 @@ import createPatchResponseVS from './shaders/patchResponse.vert';
 import createPatchResponseFS from './shaders/patchResponse.frag';
 
 
-var webglFilter = function () {
-  /*
-   * Textures:
-   * 0 : raw filter
-   * 1 : patches
-   * 2 : finished response
-   * 3 : grad/lbp treated patches
-   * 4 : sobel filter
-   * 5 : lbp filter
-   *
-   * Routing:
-   *         (              )  0/4/5 --\
-   *         (              )          _\|
-   * 1 ----> ( ---------->3 ) ----------> 2
-   *         lbpResponse/      patchResponse
-   *         gradientResponse
-   */
+/*
+ * Textures:
+ * 0 : raw filter
+ * 1 : patches
+ * 2 : finished response
+ * 3 : grad/lbp treated patches
+ * 4 : sobel filter
+ * 5 : lbp filter
+ *
+ * Routing:
+ *         (              )  0/4/5 --\
+ *         (              )          _\|
+ * 1 ----> ( ---------->3 ) ----------> 2
+ *         lbpResponse/      patchResponse
+ *         gradientResponse
+ */
+export default class WebglFilter {
+  constructor () {
+    this.gl;
+    this.canvas;
 
-  var gl, canvas;
-  var filterWidth, filterHeight, patchWidth, patchHeight, numPatches, canvasWidth, canvasHeight;
-  var patchResponseProgram, patchDrawProgram;
-  var fbo, numBlocks, patchTex;
-  var drawRectBuffer, drawLayerBuffer, drawImageBuffer, rttTexture;
-  var texCoordBuffer, texCoordLocation, apositionBuffer;
-  var newCanvasWidth, newCanvasBlockHeight, newCanvasHeight;
-  var drawOutRectangles, drawOutImages, drawOutLayer;
-  var patchCells, textureWidth, textureHeight, patchSize, patchArray;
-  var biases;
+    this.filterWidth;
+    this.filterHeight;
+    this.patchWidth;
+    this.patchHeight;
+    this.numPatches;
+    this.canvasWidth;
+    this.canvasHeight;
+    //
+    this.patchResponseProgram;
+    this.patchDrawProgram;
 
-  var lbpResponseProgram;
-  var lbo, lbpTexCoordLocation, lbpTexCoordBuffer, lbpPositionLocation, lbpAPositionBuffer;
+    this.fbo;
+    this.numBlocks;
+    this.patchTex;
 
-  var gradientResponseProgram;
-  var gbo, gradTexCoordLocation, gradTexCoordBuffer, gradPositionLocation, gradAPositionBuffer;
+    this.drawRectBuffer;
+    this.drawLayerBuffer;
+    this.drawImageBuffer;
+    this.rttTexture;
 
-  var lbpInit = false;
-  var sobelInit = false;
-  var rawInit = false;
+    this.texCoordBuffer;
+    this.texCoordLocation;
+    this.apositionBuffer;
 
-  var lbpResponseVS = createLbpResponseVS();
-  var lbpResponseFS;
+    this.newCanvasWidth;
+    this.newCanvasBlockHeight;
+    this.newCanvasHeight;
 
-  var gradientResponseVS = createGradientResponseVS();
-  var gradientResponseFS;
+    this.drawOutRectangles;
+    this.drawOutImages;
+    this.drawOutLayer;
 
-  var patchResponseVS;
-  var patchResponseFS;
+    this.patchCells;
+    this.textureWidth;
+    this.textureHeight;
+    this.patchSize;
+    this.patchArray;
 
-  var drawResponsesVS = createDrawResponsesVS();
-  var drawResponsesFS = createDrawResponsesFS()
+    this.biases;
+    //
+    this.lbpResponseProgram;
 
-  this.init = function(filters, bias, nP, pW, pH, fW, fH) {
+    this.lbo;
+    this.lbpTexCoordLocation;
+    this.lbpTexCoordBuffer;
+    this.lbpPositionLocation;
+    this.lbpAPositionBuffer;
+    //
+    this.gradientResponseProgram;
+
+    this.gbo;
+    this.gradTexCoordLocation;
+    this.gradTexCoordBuffer;
+    this.gradPositionLocation;
+    this.gradAPositionBuffer;
+
+    this.lbpInit = false;
+    this.sobelInit = false;
+    this.rawInit = false;
+
+    this.lbpResponseVS = createLbpResponseVS();
+    this.lbpResponseFS;
+
+    this.gradientResponseVS = createGradientResponseVS();
+    this.gradientResponseFS;
+
+    this.patchResponseVS;
+    this.patchResponseFS;
+
+    this.drawResponsesVS = createDrawResponsesVS();
+    this.drawResponsesFS = createDrawResponsesFS()
+  }
+
+  init (filters, bias, nP, pW, pH, fW, fH) {
     // we assume filterVector goes from left to right, rowwise, i.e. row-major order
-
-    if (fW != fH) {
-      alert("filter width and height must be same size!");
+    if (fW !== fH) {
+      alert('filter width and height must be same size!');
       return;
     }
 
     // if filter width is not odd, alert
-    if (fW % 2 == 0 || fH % 2 == 0) {
-      alert("filters used in svm must be of odd dimensions!");
+    if (fW % 2 === 0 || fH % 2 === 0) {
+      alert('filters used in svm must be of odd dimensions!');
       return;
     }
 
     // setup variables
-    biases = bias;
-    filterWidth = fW;
-    filterHeight = fH;
-    patchWidth = pW;
-    patchHeight = pH;
-    numPatches = nP;
-    numBlocks = Math.floor(numPatches / 4) + Math.ceil((numPatches % 4)/4);
-    canvasWidth = patchWidth;
-    canvasHeight = patchHeight*numBlocks;
-    newCanvasWidth = patchWidth-filterWidth+1;
-    newCanvasBlockHeight = patchHeight-filterWidth+1;
-    newCanvasHeight = newCanvasBlockHeight*numPatches;
-    patchCells = (Math.floor(numPatches / 4) + Math.ceil((numPatches % 4)/4));
-    textureWidth = patchWidth;
-    textureHeight = patchHeight*patchCells;
-    patchSize = patchWidth*patchHeight;
-    patchArray = new Float32Array(patchSize*patchCells*4);
-    var opp = [1/patchWidth, 1/(patchHeight*numBlocks)];
+    this.biases = bias;
+    this.filterWidth = fW;
+    this.filterHeight = fH;
+    this.patchWidth = pW;
+    this.patchHeight = pH;
+    this.numPatches = nP;
+    this.numBlocks = Math.floor(this.numPatches / 4) + Math.ceil((this.numPatches % 4) / 4);
+    this.canvasWidth = this.patchWidth;
+    this.canvasHeight = this.patchHeight * this.numBlocks;
+    this.newCanvasWidth = this.patchWidth - this.filterWidth + 1;
+    this.newCanvasBlockHeight = this.patchHeight - this.filterWidth + 1;
+    this.newCanvasHeight = this.newCanvasBlockHeight * this.numPatches;
+    this.patchCells = (Math.floor(this.numPatches / 4) + Math.ceil((this.numPatches % 4) / 4));
+    this.textureWidth = this.patchWidth;
+    this.textureHeight = this.patchHeight * this.patchCells;
+    this.patchSize = this.patchWidth * this.patchHeight;
+    this.patchArray = new Float32Array(this.patchSize * this.patchCells * 4);
+    let opp = [1 / this.patchWidth, 1 / (this.patchHeight * this.numBlocks)];
 
     // write out shaders
-    patchResponseFS = createPatchResponseFS({
-      onePixelPatchesX: (1 / patchWidth).toFixed(10),
-      onePixelPatchesY: (1 / (patchHeight * numBlocks)).toFixed(10),
-      onePixelFiltersX: (1 / filterWidth).toFixed(10),
-      onePixelFiltersY: (1 / (filterHeight * numBlocks)).toFixed(10),
-      halfFilterWidth: ((filterWidth - 1.0) / 2).toFixed(1),
-      halfFilterHeight: ((filterHeight - 1.0) / 2).toFixed(1),
-      filterWidth,
-      filterHeight
+    this.patchResponseFS = createPatchResponseFS({
+      onePixelPatchesX: (1 / this.patchWidth).toFixed(10),
+      onePixelPatchesY: (1 / (this.patchHeight * this.numBlocks)).toFixed(10),
+      onePixelFiltersX: (1 / this.filterWidth).toFixed(10),
+      onePixelFiltersY: (1 / (this.filterHeight * this.numBlocks)).toFixed(10),
+      halfFilterWidth: ((this.filterWidth - 1.0) / 2).toFixed(1),
+      halfFilterHeight: ((this.filterHeight - 1.0) / 2).toFixed(1),
+      filterWidth: this.filterWidth,
+      filterHeight: this.filterHeight
     });
 
-    patchResponseVS = createPatchResponseVS({
-      resolutionX: canvasWidth.toFixed(1),
-      resolutionY: canvasHeight.toFixed(1),
-      patchHeight: (1 / numBlocks).toFixed(10),
-      filterHeight: (1 / numBlocks).toFixed(10),
-      midpointY: (1 / (numBlocks * 2)).toFixed(10)
+    this.patchResponseVS = createPatchResponseVS({
+      resolutionX: this.canvasWidth.toFixed(1),
+      resolutionY: this.canvasHeight.toFixed(1),
+      patchHeight: (1 / this.numBlocks).toFixed(10),
+      filterHeight: (1 / this.numBlocks).toFixed(10),
+      midpointY: (1 / (this.numBlocks * 2)).toFixed(10)
     });
 
     if ('lbp' in filters) {
       // lbpResponseFragment
-      lbpResponseFS = createLbpResponseFS({
+      this.lbpResponseFS = createLbpResponseFS({
         opp0: opp[0].toFixed(5),
         opp1: opp[1].toFixed(5)
       });
@@ -132,96 +174,96 @@ var webglFilter = function () {
 
     if ('sobel' in filters) {
       // gradResponseFragment
-      gradientResponseFS = createGradientResponseFS({
+      this.gradientResponseFS = createGradientResponseFS({
         opp0: opp[0].toFixed(5),
         opp1: opp[1].toFixed(5)
       });
     }
 
-    //create webglcanvas
-    canvas = document.createElement('canvas')
-    canvas.setAttribute('width', (patchWidth-filterWidth+1)+"px");
-    canvas.setAttribute('height', ((patchHeight-filterHeight+1)*numPatches)+"px");
-    canvas.setAttribute('id', 'renderCanvas');
-    canvas.setAttribute('style', 'display:none;');
+    // create webglcanvas
+    this.canvas = document.createElement('canvas')
+    this.canvas.setAttribute('width', (this.patchWidth - this.filterWidth + 1) + 'px');
+    this.canvas.setAttribute('height', ((this.patchHeight - this.filterHeight + 1) * this.numPatches) + 'px');
+    this.canvas.setAttribute('id', 'renderCanvas');
+    this.canvas.setAttribute('style', 'display:none;');
     // FIXME: dont litter the DOM with render canvases
-    document.body.appendChild(canvas);
-    gl = setupWebGL(canvas, {
+    document.body.appendChild(this.canvas);
+    const gl = setupWebGL(this.canvas, {
       premultipliedAlpha: false,
       preserveDrawingBuffer: true,
       antialias: false
     });
+    this.gl = gl;
 
 
     // check for float textures support and fail if not
-    if (!gl.getExtension("OES_texture_float")) {
-      alert("Your graphics card does not support floating point textures! :(");
+    if (!gl.getExtension('OES_texture_float')) {
+      alert('Your graphics card does not support floating point textures! :(');
       return;
     }
 
     /** insert filters into textures **/
     if ('raw' in filters) {
-      insertFilter(filters['raw'], gl.TEXTURE0)
-      rawInit = true;
+      this._insertFilter(filters['raw'], gl.TEXTURE0)
+      this.rawInit = true;
     }
     if ('sobel' in filters) {
-      insertFilter(filters['sobel'], gl.TEXTURE4)
-      sobelInit = true;
+      this._insertFilter(filters['sobel'], gl.TEXTURE4)
+      this.sobelInit = true;
     }
     if ('lbp' in filters) {
-      insertFilter(filters['lbp'], gl.TEXTURE5)
-      lbpInit = true;
+      this._insertFilter(filters['lbp'], gl.TEXTURE5)
+      this.lbpInit = true;
     }
 
     /** calculate vertices for calculating responses **/
 
     // vertex rectangles to draw out
     var rectangles = [];
-    var halfFilter = (filterWidth-1)/2;
-    var yOffset;
-    for (var i = 0;i < numBlocks;i++) {
-      yOffset = i*patchHeight;
-      //first triangle
-      rectangles = rectangles.concat(
-        [halfFilter, yOffset+halfFilter,
-        patchWidth-halfFilter, yOffset+halfFilter,
-        halfFilter, yOffset+patchHeight-halfFilter]
-      );
-      //second triangle
-      rectangles = rectangles.concat(
-        [halfFilter, yOffset+patchHeight-halfFilter,
-        patchWidth-halfFilter, yOffset+halfFilter,
-        patchWidth-halfFilter, yOffset+patchHeight-halfFilter]
-      );
+    var halfFilter = (this.filterWidth - 1) / 2;
+    let yOffset;
+    for (let i = 0; i < this.numBlocks; i++) {
+      yOffset = i * this.patchHeight;
+      // first triangle
+      rectangles = rectangles.concat([
+        halfFilter, yOffset + halfFilter,
+        this.patchWidth - halfFilter, yOffset + halfFilter,
+        halfFilter, yOffset + this.patchHeight - halfFilter
+      ]);
+      // second triangle
+      rectangles = rectangles.concat([
+        halfFilter, yOffset + this.patchHeight - halfFilter,
+        this.patchWidth - halfFilter, yOffset + halfFilter,
+        this.patchWidth - halfFilter, yOffset + this.patchHeight - halfFilter
+      ]);
     }
     rectangles = new Float32Array(rectangles);
 
     // image rectangles to draw out
     var irectangles = [];
-    for (var i = 0;i < rectangles.length;i++) {
-      if (i % 2 == 0) {
-        irectangles[i] = rectangles[i]/canvasWidth;
+    for (let i = 0; i < rectangles.length; i++) {
+      if (i % 2 === 0) {
+        irectangles[i] = rectangles[i] / this.canvasWidth;
       } else {
-        irectangles[i] = rectangles[i]/canvasHeight;
+        irectangles[i] = rectangles[i] / this.canvasHeight;
       }
     }
     irectangles = new Float32Array(irectangles);
 
     if ('lbp' in filters || 'sobel' in filters) {
-      var topCoord = 1.0 - 2/(patchHeight*numBlocks);
-      var bottomCoord = 1.0 - 2/numBlocks + 2/(patchHeight*numBlocks);
-      var yOffset;
+      var topCoord = 1.0 - 2 / (this.patchHeight * this.numBlocks);
+      var bottomCoord = 1.0 - 2 / this.numBlocks + 2 / (this.patchHeight * this.numBlocks);
       // calculate position of vertex rectangles for gradient/lbp program
       var gradRectangles = [];
-      for (var i = 0;i < numBlocks;i++) {
-        yOffset = i * (2/numBlocks);
-        //first triangle
+      for (let i = 0; i < this.numBlocks; i++) {
+        yOffset = i * (2 / this.numBlocks);
+        // first triangle
         gradRectangles = gradRectangles.concat(
           [-1.0, topCoord - yOffset,
           1.0, topCoord - yOffset,
           -1.0, bottomCoord - yOffset]
         );
-        //second triangle
+        // second triangle
         gradRectangles = gradRectangles.concat(
           [-1.0, bottomCoord - yOffset,
           1.0, topCoord - yOffset,
@@ -230,19 +272,19 @@ var webglFilter = function () {
       }
       gradRectangles = new Float32Array(gradRectangles);
 
-      topCoord = 1.0 - 1/(patchHeight*numBlocks);
-      bottomCoord = 1.0 - 1/numBlocks + 1/(patchHeight*numBlocks);
+      topCoord = 1.0 - 1 / (this.patchHeight * this.numBlocks);
+      bottomCoord = 1.0 - 1 / this.numBlocks + 1 / (this.patchHeight * this.numBlocks);
       // calculate position of image rectangles to draw out
       var gradIRectangles = [];
-      for (var i = 0;i < numBlocks;i++) {
-        yOffset = i * (1/numBlocks);
-        //first triangle
+      for (let i = 0; i < this.numBlocks; i++) {
+        yOffset = i * (1 / this.numBlocks);
+        // first triangle
         gradIRectangles = gradIRectangles.concat(
           [0.0, topCoord - yOffset,
           1.0, topCoord - yOffset,
           0.0, bottomCoord - yOffset]
         );
-        //second triangle
+        // second triangle
         gradIRectangles = gradIRectangles.concat(
           [0.0, bottomCoord - yOffset,
           1.0, topCoord - yOffset,
@@ -255,460 +297,465 @@ var webglFilter = function () {
     // vertices for drawing out responses
 
     // drawOutRectangles
-    drawOutRectangles = new Float32Array(12*numPatches);
-    var yOffset, indexOffset;
-    for (var i = 0;i < numPatches;i++) {
-      yOffset = i*newCanvasBlockHeight;
-      indexOffset = i*12;
+    this.drawOutRectangles = new Float32Array(12 * this.numPatches);
+    let indexOffset;
+    for (var i = 0; i < this.numPatches; i++) {
+      yOffset = i * this.newCanvasBlockHeight;
+      indexOffset = i * 12;
 
-      //first triangle
-      drawOutRectangles[indexOffset] = 0.0;
-      drawOutRectangles[indexOffset+1] = yOffset;
-      drawOutRectangles[indexOffset+2] = newCanvasWidth;
-      drawOutRectangles[indexOffset+3] = yOffset;
-      drawOutRectangles[indexOffset+4] = 0.0;
-      drawOutRectangles[indexOffset+5] = yOffset+newCanvasBlockHeight;
+      // first triangle
+      this.drawOutRectangles[indexOffset] = 0.0;
+      this.drawOutRectangles[indexOffset + 1] = yOffset;
+      this.drawOutRectangles[indexOffset + 2] = this.newCanvasWidth;
+      this.drawOutRectangles[indexOffset + 3] = yOffset;
+      this.drawOutRectangles[indexOffset + 4] = 0.0;
+      this.drawOutRectangles[indexOffset + 5] = yOffset + this.newCanvasBlockHeight;
 
-      //second triangle
-      drawOutRectangles[indexOffset+6] = 0.0;
-      drawOutRectangles[indexOffset+7] = yOffset+newCanvasBlockHeight;
-      drawOutRectangles[indexOffset+8] = newCanvasWidth;
-      drawOutRectangles[indexOffset+9] = yOffset;
-      drawOutRectangles[indexOffset+10] = newCanvasWidth;
-      drawOutRectangles[indexOffset+11] = yOffset+newCanvasBlockHeight;
+      // second triangle
+      this.drawOutRectangles[indexOffset + 6] = 0.0;
+      this.drawOutRectangles[indexOffset + 7] = yOffset + this.newCanvasBlockHeight;
+      this.drawOutRectangles[indexOffset + 8] = this.newCanvasWidth;
+      this.drawOutRectangles[indexOffset + 9] = yOffset;
+      this.drawOutRectangles[indexOffset + 10] = this.newCanvasWidth;
+      this.drawOutRectangles[indexOffset + 11] = yOffset + this.newCanvasBlockHeight;
     }
 
     // images
-    drawOutImages = new Float32Array(numPatches*12);
-    var halfFilterWidth = ((filterWidth-1)/2)/patchWidth;
-    var halfFilterHeight = ((filterWidth-1)/2)/(patchHeight*patchCells);
-    var patchHeightT = patchHeight / (patchHeight*patchCells);
-    for (var i = 0;i < numPatches;i++) {
-      yOffset = Math.floor(i / 4)*patchHeightT;
-      indexOffset = i*12;
+    this.drawOutImages = new Float32Array(this.numPatches * 12);
+    var halfFilterWidth = ((this.filterWidth - 1) / 2) / this.patchWidth;
+    var halfFilterHeight = ((this.filterWidth - 1) / 2) / (this.patchHeight * this.patchCells);
+    var patchHeightT = this.patchHeight / (this.patchHeight * this.patchCells);
+    for (let i = 0; i < this.numPatches; i++) {
+      yOffset = Math.floor(i / 4) * patchHeightT;
+      indexOffset = i * 12;
 
-      //first triangle
-      drawOutImages[indexOffset] = halfFilterWidth;
-      drawOutImages[indexOffset+1] = yOffset+halfFilterHeight;
-      drawOutImages[indexOffset+2] = 1.0-halfFilterWidth;
-      drawOutImages[indexOffset+3] = yOffset+halfFilterHeight;
-      drawOutImages[indexOffset+4] = halfFilterWidth;
-      drawOutImages[indexOffset+5] = yOffset+patchHeightT-halfFilterHeight;
+      // first triangle
+      this.drawOutImages[indexOffset] = halfFilterWidth;
+      this.drawOutImages[indexOffset + 1] = yOffset + halfFilterHeight;
+      this.drawOutImages[indexOffset + 2] = 1.0 - halfFilterWidth;
+      this.drawOutImages[indexOffset + 3] = yOffset + halfFilterHeight;
+      this.drawOutImages[indexOffset + 4] = halfFilterWidth;
+      this.drawOutImages[indexOffset + 5] = yOffset + patchHeightT - halfFilterHeight;
 
-      //second triangle
-      drawOutImages[indexOffset+6] = halfFilterWidth;
-      drawOutImages[indexOffset+7] = yOffset+patchHeightT-halfFilterHeight;
-      drawOutImages[indexOffset+8] = 1.0-halfFilterWidth;
-      drawOutImages[indexOffset+9] = yOffset+halfFilterHeight;
-      drawOutImages[indexOffset+10] = 1.0-halfFilterWidth;
-      drawOutImages[indexOffset+11] = yOffset+patchHeightT-halfFilterHeight;
+      // second triangle
+      this.drawOutImages[indexOffset + 6] = halfFilterWidth;
+      this.drawOutImages[indexOffset + 7] = yOffset + patchHeightT - halfFilterHeight;
+      this.drawOutImages[indexOffset + 8] = 1.0 - halfFilterWidth;
+      this.drawOutImages[indexOffset + 9] = yOffset + halfFilterHeight;
+      this.drawOutImages[indexOffset + 10] = 1.0 - halfFilterWidth;
+      this.drawOutImages[indexOffset + 11] = yOffset + patchHeightT - halfFilterHeight;
     }
 
     // layer
-    drawOutLayer = new Float32Array(numPatches*6);
+    this.drawOutLayer = new Float32Array(this.numPatches * 6);
     var layernum;
-    for (var i = 0;i < numPatches;i++) {
+    for (let i = 0; i < this.numPatches; i++) {
       layernum = i % 4;
-      indexOffset = i*6;
-      drawOutLayer[indexOffset] = layernum;
-      drawOutLayer[indexOffset+1] = layernum;
-      drawOutLayer[indexOffset+2] = layernum;
-      drawOutLayer[indexOffset+3] = layernum;
-      drawOutLayer[indexOffset+4] = layernum;
-      drawOutLayer[indexOffset+5] = layernum;
+      indexOffset = i * 6;
+      this.drawOutLayer[indexOffset] = layernum;
+      this.drawOutLayer[indexOffset + 1] = layernum;
+      this.drawOutLayer[indexOffset + 2] = layernum;
+      this.drawOutLayer[indexOffset + 3] = layernum;
+      this.drawOutLayer[indexOffset + 4] = layernum;
+      this.drawOutLayer[indexOffset + 5] = layernum;
     }
 
     /** set up programs and load attributes etc **/
 
     if ('sobel' in filters) {
-      var grVertexShader = loadShader(gl, gradientResponseVS, gl.VERTEX_SHADER);
-      var grFragmentShader = loadShader(gl, gradientResponseFS, gl.FRAGMENT_SHADER);
-      gradientResponseProgram = loadProgram(gl, [grVertexShader, grFragmentShader]);
-      gl.useProgram(gradientResponseProgram);
+      var grVertexShader = loadShader(gl, this.gradientResponseVS, gl.VERTEX_SHADER);
+      var grFragmentShader = loadShader(gl, this.gradientResponseFS, gl.FRAGMENT_SHADER);
+      this.gradientResponseProgram = loadProgram(gl, [grVertexShader, grFragmentShader]);
+      gl.useProgram(this.gradientResponseProgram);
 
       // set up vertices with rectangles
-      gradPositionLocation = gl.getAttribLocation(gradientResponseProgram, "a_position");
-      gradAPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, gradAPositionBuffer);
+      this.gradPositionLocation = gl.getAttribLocation(this.gradientResponseProgram, 'a_position');
+      this.gradAPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.gradAPositionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, gradRectangles, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(gradPositionLocation);
-      gl.vertexAttribPointer(gradPositionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.gradPositionLocation);
+      gl.vertexAttribPointer(this.gradPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
       // set up texture positions
-      gradTexCoordLocation = gl.getAttribLocation(gradientResponseProgram, "a_texCoord");
-      gradTexCoordBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, gradTexCoordBuffer);
+      this.gradTexCoordLocation = gl.getAttribLocation(this.gradientResponseProgram, 'a_texCoord');
+      this.gradTexCoordBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.gradTexCoordBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, gradIRectangles, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(gradTexCoordLocation);
-      gl.vertexAttribPointer(gradTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.gradTexCoordLocation);
+      gl.vertexAttribPointer(this.gradTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
       // set up patches texture in gradientResponseProgram
-      gl.uniform1i(gl.getUniformLocation(gradientResponseProgram, "u_patches"), 1);
+      gl.uniform1i(gl.getUniformLocation(this.gradientResponseProgram, 'u_patches'), 1);
     }
     if ('lbp' in filters) {
-      var lbpVertexShader = loadShader(gl, lbpResponseVS, gl.VERTEX_SHADER);
-      var lbpFragmentShader = loadShader(gl, lbpResponseFS, gl.FRAGMENT_SHADER);
-      lbpResponseProgram = loadProgram(gl, [lbpVertexShader, lbpFragmentShader]);
-      gl.useProgram(lbpResponseProgram);
+      var lbpVertexShader = loadShader(gl, this.lbpResponseVS, gl.VERTEX_SHADER);
+      var lbpFragmentShader = loadShader(gl, this.lbpResponseFS, gl.FRAGMENT_SHADER);
+      this.lbpResponseProgram = loadProgram(gl, [lbpVertexShader, lbpFragmentShader]);
+      gl.useProgram(this.lbpResponseProgram);
 
       // set up vertices with rectangles
-      lbpPositionLocation = gl.getAttribLocation(lbpResponseProgram, "a_position");
-      lbpAPositionBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, lbpAPositionBuffer);
+      this.lbpPositionLocation = gl.getAttribLocation(this.lbpResponseProgram, 'a_position');
+      this.lbpAPositionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lbpAPositionBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, gradRectangles, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(lbpPositionLocation);
-      gl.vertexAttribPointer(lbpPositionLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.lbpPositionLocation);
+      gl.vertexAttribPointer(this.lbpPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
       // set up texture positions
-      gradTexCoordLocation = gl.getAttribLocation(lbpResponseProgram, "a_texCoord");
-      lbpTexCoordBuffer = gl.createBuffer();
-      gl.bindBuffer(gl.ARRAY_BUFFER, lbpTexCoordBuffer);
+      this.gradTexCoordLocation = gl.getAttribLocation(this.lbpResponseProgram, 'a_texCoord');
+      this.lbpTexCoordBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.lbpTexCoordBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, gradIRectangles, gl.STATIC_DRAW);
-      gl.enableVertexAttribArray(lbpTexCoordLocation);
-      gl.vertexAttribPointer(lbpTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
+      gl.enableVertexAttribArray(this.lbpTexCoordLocation);
+      gl.vertexAttribPointer(this.lbpTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
       // set up patches texture in lbpResponseProgram
-      gl.uniform1i(gl.getUniformLocation(lbpResponseProgram, "u_patches"), 1);
+      gl.uniform1i(gl.getUniformLocation(this.lbpResponseProgram, 'u_patches'), 1);
     }
 
     // setup patchdraw program
-    var drVertexShader = loadShader(gl, drawResponsesVS, gl.VERTEX_SHADER);
-    var drFragmentShader = loadShader(gl, drawResponsesFS, gl.FRAGMENT_SHADER);
-    patchDrawProgram = loadProgram(gl, [drVertexShader, drFragmentShader]);
-    gl.useProgram(patchDrawProgram);
+    var drVertexShader = loadShader(gl, this.drawResponsesVS, gl.VERTEX_SHADER);
+    var drFragmentShader = loadShader(gl, this.drawResponsesFS, gl.FRAGMENT_SHADER);
+    this.patchDrawProgram = loadProgram(gl, [drVertexShader, drFragmentShader]);
+    gl.useProgram(this.patchDrawProgram);
 
     // set the resolution/dimension of the canvas
-    var resolutionLocation = gl.getUniformLocation(patchDrawProgram, "u_resolutiondraw");
-    gl.uniform2f(resolutionLocation, newCanvasWidth, newCanvasHeight);
+    var resolutionLocation = gl.getUniformLocation(this.patchDrawProgram, 'u_resolutiondraw');
+    gl.uniform2f(resolutionLocation, this.newCanvasWidth, this.newCanvasHeight);
 
     // set u_responses
-    var responsesLocation = gl.getUniformLocation(patchDrawProgram, "u_responses");
+    var responsesLocation = gl.getUniformLocation(this.patchDrawProgram, 'u_responses');
     gl.uniform1i(responsesLocation, 2);
 
     // setup patchresponse program
-    var prVertexShader = loadShader(gl, patchResponseVS, gl.VERTEX_SHADER);
-    var prFragmentShader = loadShader(gl, patchResponseFS, gl.FRAGMENT_SHADER);
-    patchResponseProgram = loadProgram(gl, [prVertexShader, prFragmentShader]);
-    gl.useProgram(patchResponseProgram);
+    var prVertexShader = loadShader(gl, this.patchResponseVS, gl.VERTEX_SHADER);
+    var prFragmentShader = loadShader(gl, this.patchResponseFS, gl.FRAGMENT_SHADER);
+    this.patchResponseProgram = loadProgram(gl, [prVertexShader, prFragmentShader]);
+    gl.useProgram(this.patchResponseProgram);
 
     // set up vertices with rectangles
-    var positionLocation = gl.getAttribLocation(patchResponseProgram, "a_position");
-    apositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, apositionBuffer);
+    var positionLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_position');
+    this.apositionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.apositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, rectangles, gl.STATIC_DRAW);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    texCoordLocation = gl.getAttribLocation(patchResponseProgram, "a_texCoord");
-    texCoordBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    this.texCoordLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_texCoord');
+    this.texCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, irectangles, gl.STATIC_DRAW);
-    gl.enableVertexAttribArray(texCoordLocation);
-    gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(this.texCoordLocation);
+    gl.vertexAttribPointer(this.texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
     if ('lbp' in filters || 'sobel' in filters) {
       // set up gradient/lbp buffer (also used for lbp)
       gl.activeTexture(gl.TEXTURE3);
       var gradients = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, gradients);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, patchWidth, patchHeight*numBlocks, 0, gl.RGBA, gl.FLOAT, null);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.patchWidth, this.patchHeight * this.numBlocks, 0, gl.RGBA, gl.FLOAT, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
       // set up gradient/lbp framebuffer
-      gbo = gl.createFramebuffer();
-      gl.bindFramebuffer(gl.FRAMEBUFFER, gbo);
+      this.gbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbo);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, gradients, 0);
     }
 
     // set up buffer to draw to
     gl.activeTexture(gl.TEXTURE2);
-    rttTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, rttTexture);
+    this.rttTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.rttTexture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, patchWidth, patchHeight*numBlocks, 0, gl.RGBA, gl.FLOAT, null);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.patchWidth, this.patchHeight * this.numBlocks, 0, gl.RGBA, gl.FLOAT, null);
 
     // set up response framebuffer
-    fbo = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, rttTexture, 0);
+    this.fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.rttTexture, 0);
 
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     /* initialize some textures and buffers used later on */
 
-    patchTex = gl.createTexture();
-    drawRectBuffer = gl.createBuffer();
-    drawImageBuffer = gl.createBuffer();
-    drawLayerBuffer = gl.createBuffer();
+    this.patchTex = gl.createTexture();
+    this.drawRectBuffer = gl.createBuffer();
+    this.drawImageBuffer = gl.createBuffer();
+    this.drawLayerBuffer = gl.createBuffer();
   }
 
-  this.getRawResponses = function(patches) {
+  getRawResponses (patches) {
     // TODO: check patches correct length/dimension
 
-    insertPatches(patches);
+    this._insertPatches(patches);
+    const gl = this.gl;
 
     // switch to correct program
-    gl.useProgram(patchResponseProgram);
+    gl.useProgram(this.patchResponseProgram);
 
     // set u_patches to point to texture 1
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_patches"), 1);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_patches'), 1);
 
     // set u_filters to point to correct filter
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_filters"), 0);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_filters'), 0);
 
     // set up vertices with rectangles
-    var positionLocation = gl.getAttribLocation(patchResponseProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, apositionBuffer);
+    var positionLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.apositionBuffer);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    var texCoordLocation = gl.getAttribLocation(patchResponseProgram, "a_texCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    var texCoordLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
     gl.enableVertexAttribArray(texCoordLocation);
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set framebuffer to the original one if not already using it
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
 
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
     // draw to framebuffer
-    gl.drawArrays(gl.TRIANGLES, 0, patchCells*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.patchCells * 6);
 
-    //gl.finish();
+    // gl.finish();
 
-    var responses = drawOut('raw');
+    var responses = this._drawOut('raw');
 
     return responses;
   }
 
-  this.getSobelResponses = function(patches) {
+  getSobelResponses (patches) {
     // check that it is initialized
-    if (!sobelInit) return;
+    if (!this.sobelInit) return;
 
-    insertPatches(patches);
+    this._insertPatches(patches);
 
     /* do sobel filter on patches */
 
+    const gl = this.gl;
     // switch to correct program
-    gl.useProgram(gradientResponseProgram);
+    gl.useProgram(this.gradientResponseProgram);
 
     // set up vertices with rectangles
-    var gradPositionLocation = gl.getAttribLocation(gradientResponseProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, gradAPositionBuffer);
+    var gradPositionLocation = gl.getAttribLocation(this.gradientResponseProgram, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.gradAPositionBuffer);
     gl.enableVertexAttribArray(gradPositionLocation);
     gl.vertexAttribPointer(gradPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    var gradTexCoordLocation = gl.getAttribLocation(gradientResponseProgram, "a_texCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, gradTexCoordBuffer);
+    var gradTexCoordLocation = gl.getAttribLocation(this.gradientResponseProgram, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.gradTexCoordBuffer);
     gl.enableVertexAttribArray(gradTexCoordLocation);
     gl.vertexAttribPointer(gradTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set framebuffer to the original one if not already using it
-    gl.bindFramebuffer(gl.FRAMEBUFFER, gbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbo);
 
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
     // draw to framebuffer
-    gl.drawArrays(gl.TRIANGLES, 0, patchCells*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.patchCells * 6);
 
     /* calculate responses */
 
-    gl.useProgram(patchResponseProgram);
+    gl.useProgram(this.patchResponseProgram);
 
     // set patches and filters to point to correct textures
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_filters"), 4);
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_patches"), 3);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_filters'), 4);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_patches'), 3);
 
-    var positionLocation = gl.getAttribLocation(patchResponseProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, apositionBuffer);
+    var positionLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.apositionBuffer);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    var texCoordLocation = gl.getAttribLocation(patchResponseProgram, "a_texCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    var texCoordLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
     gl.enableVertexAttribArray(texCoordLocation);
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
     // draw to framebuffer
-    gl.drawArrays(gl.TRIANGLES, 0, patchCells*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.patchCells * 6);
 
     /* get the responses */
 
-    var responses = drawOut('sobel');
+    var responses = this._drawOut('sobel');
 
     return responses;
   }
 
-  this.getLBPResponses = function(patches) {
+  getLBPResponses (patches) {
     // check that it is initialized
-    if (!lbpInit) return;
+    if (!this.lbpInit) return;
 
-    insertPatches(patches);
+    this._insertPatches(patches);
 
-     /* do sobel filter on patches */
+    /* do sobel filter on patches */
 
+    const gl = this.gl;
     // switch to correct program
-    gl.useProgram(lbpResponseProgram);
+    gl.useProgram(this.lbpResponseProgram);
 
     // set up vertices with rectangles
-    var lbpPositionLocation = gl.getAttribLocation(lbpResponseProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, lbpAPositionBuffer);
+    var lbpPositionLocation = gl.getAttribLocation(this.lbpResponseProgram, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lbpAPositionBuffer);
     gl.enableVertexAttribArray(lbpPositionLocation);
     gl.vertexAttribPointer(lbpPositionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    var lbpTexCoordLocation = gl.getAttribLocation(lbpResponseProgram, "a_texCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, lbpTexCoordBuffer);
+    var lbpTexCoordLocation = gl.getAttribLocation(this.lbpResponseProgram, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.lbpTexCoordBuffer);
     gl.enableVertexAttribArray(lbpTexCoordLocation);
     gl.vertexAttribPointer(lbpTexCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set framebuffer to the original one if not already using it
-    gl.bindFramebuffer(gl.FRAMEBUFFER, gbo);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.gbo);
 
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
     // draw to framebuffer
-    gl.drawArrays(gl.TRIANGLES, 0, patchCells*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.patchCells * 6);
 
     /* calculate responses */
 
-    gl.useProgram(patchResponseProgram);
+    gl.useProgram(this.patchResponseProgram);
 
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_filters"), 5);
-    gl.uniform1i(gl.getUniformLocation(patchResponseProgram, "u_patches"), 3);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_filters'), 5);
+    gl.uniform1i(gl.getUniformLocation(this.patchResponseProgram, 'u_patches'), 3);
 
-    var positionLocation = gl.getAttribLocation(patchResponseProgram, "a_position");
-    gl.bindBuffer(gl.ARRAY_BUFFER, apositionBuffer);
+    var positionLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_position');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.apositionBuffer);
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
     // set up texture positions
-    var texCoordLocation = gl.getAttribLocation(patchResponseProgram, "a_texCoord");
-    gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer);
+    var texCoordLocation = gl.getAttribLocation(this.patchResponseProgram, 'a_texCoord');
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
     gl.enableVertexAttribArray(texCoordLocation);
     gl.vertexAttribPointer(texCoordLocation, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-    gl.viewport(0, 0, patchWidth, patchHeight*numBlocks);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo);
+    gl.viewport(0, 0, this.patchWidth, this.patchHeight * this.numBlocks);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
     // draw to framebuffer
-    gl.drawArrays(gl.TRIANGLES, 0, patchCells*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.patchCells * 6);
 
     /* get the responses */
 
-    var responses = drawOut('lbp');
-
+    var responses = this._drawOut('lbp');
     return responses;
   }
 
-  var insertPatches = function(patches) {
+  _insertPatches (patches) {
     // pass patches into texture, each patch in either r, g, b or a
     var patchArrayIndex = 0;
     var patchesIndex1 = 0;
     var patchesIndex2 = 0;
-    for (var i = 0;i < patchCells;i++) {
-      for (var j = 0;j < patchHeight;j++) {
-        for (var k = 0;k < patchWidth;k++) {
-          patchesIndex1 = i*4;
-          patchesIndex2 = (j*patchWidth) + k;
-          patchArrayIndex = ((patchSize*i) + patchesIndex2)*4;
+    for (var i = 0; i < this.patchCells; i++) {
+      for (var j = 0; j < this.patchHeight; j++) {
+        for (var k = 0; k < this.patchWidth; k++) {
+          patchesIndex1 = i * 4;
+          patchesIndex2 = (j * this.patchWidth) + k;
+          patchArrayIndex = ((this.patchSize * i) + patchesIndex2) * 4;
 
-          //set r with first patch
-          if (patchesIndex1 < numPatches) {
-            patchArray[patchArrayIndex] = patches[patchesIndex1][patchesIndex2];
+          // set r with first patch
+          if (patchesIndex1 < this.numPatches) {
+            this.patchArray[patchArrayIndex] = patches[patchesIndex1][patchesIndex2];
           } else {
-            patchArray[patchArrayIndex] = 0;
+            this.patchArray[patchArrayIndex] = 0;
           }
-          //set g with 2nd patch
-          if (patchesIndex1+1 < numPatches) {
-            patchArray[patchArrayIndex + 1] = patches[patchesIndex1+1][patchesIndex2];
+          // set g with 2nd patch
+          if (patchesIndex1 + 1 < this.numPatches) {
+            this.patchArray[patchArrayIndex + 1] = patches[patchesIndex1 + 1][patchesIndex2];
           } else {
-            patchArray[patchArrayIndex + 1] = 0;
+            this.patchArray[patchArrayIndex + 1] = 0;
           }
-          //set b with 3rd patch
-          if (patchesIndex1+2 < numPatches) {
-            patchArray[patchArrayIndex + 2] = patches[patchesIndex1+2][patchesIndex2];
+          // set b with 3rd patch
+          if (patchesIndex1 + 2 < this.numPatches) {
+            this.patchArray[patchArrayIndex + 2] = patches[patchesIndex1 + 2][patchesIndex2];
           } else {
-            patchArray[patchArrayIndex + 2] = 0;
+            this.patchArray[patchArrayIndex + 2] = 0;
           }
-          //set a with 4th patch
-          if (patchesIndex1+3 < numPatches) {
-            patchArray[patchArrayIndex + 3] = patches[patchesIndex1+3][patchesIndex2];
+          // set a with 4th patch
+          if (patchesIndex1 + 3 < this.numPatches) {
+            this.patchArray[patchArrayIndex + 3] = patches[patchesIndex1 + 3][patchesIndex2];
           } else {
-            patchArray[patchArrayIndex + 3] = 0;
+            this.patchArray[patchArrayIndex + 3] = 0;
           }
         }
       }
     }
 
     // pass texture into an uniform
+    const gl = this.gl;
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, patchTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, textureWidth, textureHeight, 0, gl.RGBA, gl.FLOAT, patchArray);
+    gl.bindTexture(gl.TEXTURE_2D, this.patchTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.textureWidth, this.textureHeight, 0, gl.RGBA, gl.FLOAT, this.patchArray);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   }
 
-  var insertFilter = function(filter, textureNum) {
-    var filterSize = filterWidth*filterHeight;
-    var filterArray = new Float32Array(filterSize*(numBlocks)*4);
-    for (var i = 0;i < numBlocks;i++) {
-      for (var j = 0;j < filterHeight;j++) {
-        for (var k = 0;k < filterWidth;k++) {
-          //set r with first filter
-          if (i*4 < filter.length) {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4] = filter[i*4][(j*filterWidth) + k];
+  _insertFilter (filter, textureNum) {
+    const { filterWidth, filterHeight, numBlocks, gl } = this;
+
+    var filterSize = filterWidth * filterHeight;
+    var filterArray = new Float32Array(filterSize * (numBlocks) * 4);
+    for (var i = 0; i < numBlocks; i++) {
+      for (var j = 0; j < filterHeight; j++) {
+        for (var k = 0; k < filterWidth; k++) {
+          // set r with first filter
+          if (i * 4 < filter.length) {
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4] = filter[i * 4][(j * filterWidth) + k];
           } else {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4] = 0;
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4] = 0;
           }
-          //set g with 2nd filter
-          if ((i*4 + 1) < filter.length) {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 1] = filter[(i*4)+1][(j*filterWidth) + k];
+          // set g with 2nd filter
+          if ((i * 4 + 1) < filter.length) {
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 1] = filter[(i * 4) + 1][(j * filterWidth) + k];
           } else {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 1] = 0;
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 1] = 0;
           }
-          //set b with 3rd filter
-          if ((i*4 + 2) < filter.length) {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 2] = filter[(i*4)+2][(j*filterWidth) + k];
+          // set b with 3rd filter
+          if ((i * 4 + 2) < filter.length) {
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 2] = filter[(i * 4) + 2][(j * filterWidth) + k];
           } else {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 2] = 0;
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 2] = 0;
           }
-          //set a with 4th filter
-          if ((i*4 + 3) < filter.length) {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 3] = filter[(i*4)+3][(j*filterWidth) + k];
+          // set a with 4th filter
+          if ((i * 4 + 3) < filter.length) {
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 3] = filter[(i * 4) + 3][(j * filterWidth) + k];
           } else {
-            filterArray[((filterSize*i) + (j*filterWidth) + k)*4 + 3] = 0;
+            filterArray[((filterSize * i) + (j * filterWidth) + k) * 4 + 3] = 0;
           }
         }
       }
@@ -717,94 +764,88 @@ var webglFilter = function () {
     gl.activeTexture(textureNum);
     var filterTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, filterTexture);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, filterWidth, filterHeight*numBlocks, 0, gl.RGBA, gl.FLOAT, filterArray);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, filterWidth, filterHeight * numBlocks, 0, gl.RGBA, gl.FLOAT, filterArray);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   }
 
-  var drawOut = function(type) {
+  _drawOut (type) {
     // switch programs
-    gl.useProgram(patchDrawProgram);
+    const gl = this.gl;
+    gl.useProgram(this.patchDrawProgram);
 
     // bind canvas buffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, newCanvasWidth, newCanvasHeight);
+    gl.viewport(0, 0, this.newCanvasWidth, this.newCanvasHeight);
 
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER)
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER)
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawRectBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.drawRectBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
-      drawOutRectangles,
+      this.drawOutRectangles,
       gl.STATIC_DRAW);
-    var positionLocation = gl.getAttribLocation(patchDrawProgram, "a_position_draw");
+    var positionLocation = gl.getAttribLocation(this.patchDrawProgram, 'a_position_draw');
     gl.enableVertexAttribArray(positionLocation);
     gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawImageBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.drawImageBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
-      drawOutImages,
+      this.drawOutImages,
       gl.STATIC_DRAW);
-    var textureLocation = gl.getAttribLocation(patchDrawProgram, "a_texCoord_draw");
+    var textureLocation = gl.getAttribLocation(this.patchDrawProgram, 'a_texCoord_draw');
     gl.enableVertexAttribArray(textureLocation);
     gl.vertexAttribPointer(textureLocation, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, drawLayerBuffer);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.drawLayerBuffer);
     gl.bufferData(
       gl.ARRAY_BUFFER,
-      drawOutLayer,
+      this.drawOutLayer,
       gl.STATIC_DRAW);
-    var layerLocation = gl.getAttribLocation(patchDrawProgram, "a_patchChoice_draw");
+    var layerLocation = gl.getAttribLocation(this.patchDrawProgram, 'a_patchChoice_draw');
     gl.enableVertexAttribArray(layerLocation);
     gl.vertexAttribPointer(layerLocation, 1, gl.FLOAT, false, 0, 0);
 
     // draw out
-    gl.drawArrays(gl.TRIANGLES, 0, numPatches*6);
+    gl.drawArrays(gl.TRIANGLES, 0, this.numPatches * 6);
 
-    var responses = getOutput();
-
-    responses = unpackToFloat(responses);
-
-    // split
-    responses = splitArray(responses, numPatches);
-
-    // add bias
-    responses = addBias(responses, biases[type]);
+    let responses = this._getOutput();
+    responses = this._unpackToFloat(responses);
+    responses = this._splitArray(responses, this.numPatches);
+    responses = this._addBias(responses, this.biases[type]);
 
     // normalize responses to lie within [0,1]
-    var rl = responses.length;
-
-    for (var i = 0;i < rl;i++) {
-      responses[i] = normalizeFilterMatrix(responses[i]);
+    for (let i = 0, rl = responses.length; i < rl; i++) {
+      responses[i] = this._normalizeFilterMatrix(responses[i]);
     }
 
     return responses;
   }
 
-  var addBias = function(responses, bias) {
+  _addBias (responses, bias) {
     // do a little trick to add bias in the logit function
-    var biasMult;
-    for (var i = 0;i < responses.length;i++) {
-      biasMult = Math.exp(bias[i]);
-      for (var j = 0;j < responses[i].length;j++) {
-        responses[i][j] = 1/(1+((1-responses[i][j])/(responses[i][j]*biasMult)));
+    for (let i = 0; i < responses.length; i++) {
+      const biasMult = Math.exp(bias[i]);
+      for (let j = 0; j < responses[i].length; j++) {
+        let response = responses[i][j];
+        responses[i][j] = 1 / (1 + ((1 - response) / (response * biasMult)));
       }
     }
     return responses;
   }
 
-  var splitArray = function(array, parts) {
+  _splitArray (array, parts) {
     var sp = [];
     var al = array.length;
-    var splitlength = al/parts;
+    var splitlength = al / parts;
     var ta = [];
-    for (var i = 0;i < al;i++) {
-      if (i % splitlength == 0) {
-        if (i != 0) {
+    for (let i = 0; i < al; i++) {
+      if (i % splitlength === 0) {
+        if (i !== 0) {
           sp.push(ta);
         }
         ta = [];
@@ -815,48 +856,55 @@ var webglFilter = function () {
     return sp;
   }
 
-  var getOutput = function() {
+  _getOutput () {
+    const { gl, canvas } = this;
     // get data
-    var pixelValues = new Uint8Array(4*canvas.width*canvas.height);
-    var data = gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixelValues);
-    // return
+    var pixelValues = new Uint8Array(4 * canvas.width * canvas.height);
+    gl.readPixels(0, 0, canvas.width, canvas.height, gl.RGBA, gl.UNSIGNED_BYTE, pixelValues);
     return pixelValues;
   }
 
-  var unpackToFloat = function(array) {
+  _unpackToFloat (array) {
     // convert packed floats to proper floats : see http://stackoverflow.com/questions/9882716/packing-float-into-vec4-how-does-this-code-work
     var newArray = [];
     var al = array.length;
-    for (var i = 0;i < al;i+=4) {
-      newArray[(i / 4) >> 0] = ((array[i]/(256*256*256*256))+(array[i+1]/(256*256*256))+(array[i+2]/(256*256))+(array[i+3]/256));
+    for (let i = 0; i < al; i += 4) {
+      newArray[(i / 4) >> 0] = (
+        ((array[i] / (256 * 256 * 256 * 256)) +
+        (array[i + 1] / (256 * 256 * 256)) +
+        (array[i + 2] / (256 * 256)) +
+        (array[i + 3] / 256))
+      );
     }
     return newArray;
   }
 
-  var normalizeFilterMatrix = function(response) {
+  _normalizeFilterMatrix (response) {
     // normalize responses to lie within [0,1]
-    var msize = response.length;
-    var max = 0;
-    var min = 1;
+    const msize = response.length;
+    let max = 0;
+    let min = 1;
 
-    for (var i = 0;i < msize;i++) {
-      max = response[i] > max ? response[i] : max;
-      min = response[i] < min ? response[i] : min;
+    for (let i = 0; i < msize; i++) {
+      let val = response[i];
+      if (val > max) {
+        max = val;
+      }
+      if (val < min) {
+        min = val;
+      }
     }
-    var dist = max-min;
+    const dist = max - min;
 
-    if (dist == 0) {
-      console.log("a patchresponse was monotone, causing normalization to fail. Leaving it unchanged.")
-      response = response.map(function() {return 1});
+    if (dist === 0) {
+      console.log('a patchresponse was monotone, causing normalization to fail. Leaving it unchanged.')
+      response = response.map(() => 1);
     } else {
-      for (var i = 0;i < msize;i++) {
-        response[i] = (response[i]-min)/dist;
+      for (let i = 0; i < msize; i++) {
+        response[i] = (response[i] - min) / dist;
       }
     }
 
-    return response
+    return response;
   }
-};
-
-
-module.exports = webglFilter;
+}
