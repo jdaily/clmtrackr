@@ -865,14 +865,14 @@ export default class WebglFilter {
 
   _unpackToFloat (array) {
     // convert packed floats to proper floats : see http://stackoverflow.com/questions/9882716/packing-float-into-vec4-how-does-this-code-work
-    var newArray = [];
-    var al = array.length;
+    const newArray = [];
+    const al = array.length;
     for (let i = 0; i < al; i += 4) {
       newArray[(i / 4) >> 0] = (
-        ((array[i] / (256 * 256 * 256 * 256)) +
-        (array[i + 1] / (256 * 256 * 256)) +
-        (array[i + 2] / (256 * 256)) +
-        (array[i + 3] / 256))
+        array[i] / 4294967296 + // 256 * 256 * 256 * 256
+        array[i + 1] / 16777216 + // 256 * 256 * 256
+        array[i + 2] / 65536 + // 256 * 256
+        array[i + 3] / 256
       );
     }
     return newArray;

@@ -168,6 +168,8 @@ export default class Tracker extends EventEmitter {
     this.jsfeatFace = new JsfeatFace();
 
     this._running = false;
+
+    this._meanshiftVectors = [];
   }
 
   /*
@@ -370,6 +372,11 @@ export default class Tracker extends EventEmitter {
       }
       this.pointWeights = numeric.diag(this.pointWeights);
     }
+
+    // Populate meanshift vectors
+    for (let i = 0; i < this.numPatches; i++) {
+      this._meanshiftVectors[i] = [0, 0];
+    }
   }
 
   /*
@@ -430,7 +437,6 @@ export default class Tracker extends EventEmitter {
     this.emit('beforeTrack');
 
     var scaling, translateX, translateY, rotation;
-    var ptch, px, py;
 
     if (gi) {
       scaling = gi[0];
@@ -518,27 +524,25 @@ export default class Tracker extends EventEmitter {
       }
     }
 
-    var pdata, pmatrix, grayscaleColor;
     for (let i = 0; i < this.numPatches; i++) {
-      px = patchPositions[i][0] - (this.pw / 2);
-      py = patchPositions[i][1] - (this.pl / 2);
-      ptch = this.sketchCC.getImageData(
+      const px = patchPositions[i][0] - (this.pw / 2);
+      const py = patchPositions[i][1] - (this.pl / 2);
+      const ptch = this.sketchCC.getImageData(
         Math.round(px),
         Math.round(py),
         this.pw,
         this.pl
       );
-      pdata = ptch.data;
+      const pdata = ptch.data;
 
       // convert to grayscale
-      pmatrix = this.patches[i];
+      const pmatrix = this.patches[i];
       for (let j = 0; j < this.pdataLength; j++) {
-        grayscaleColor = (
+        pmatrix[j] = (
           pdata[j * 4] * 0.3 +
           pdata[(j * 4) + 1] * 0.59 +
           pdata[(j * 4) + 2] * 0.11
         );
-        pmatrix[j] = grayscaleColor;
       }
     }
 
@@ -598,9 +602,7 @@ export default class Tracker extends EventEmitter {
     }*/
 
     // iterate until convergence or max 10, 20 iterations?:
-    var originalPositions = this.currentPositions;
     var jac;
-    var meanshiftVectors = [];
 
     for (let i = 0; i < this.varianceSeq.length; i++) {
       // calculate jacobian
@@ -609,66 +611,7 @@ export default class Tracker extends EventEmitter {
       // for debugging
       // var debugMVs = [];
 
-      var opj0, opj1;
-
-      for (let j = 0; j < this.numPatches; j++) {
-        opj0 = originalPositions[j][0] - ((this.searchWindow - 1) * scaling / 2);
-        opj1 = originalPositions[j][1] - ((this.searchWindow - 1) * scaling / 2);
-
-        // calculate PI x gaussians
-        var vpsum = gpopt(
-          this.searchWindow,
-          this.currentPositions[j],
-          this.updatePosition,
-          this.vecProbs,
-          this.responses,
-          opj0,
-          opj1,
-          j,
-          this.varianceSeq[i],
-          scaling
-        );
-
-        // calculate meanshift-vector
-        gpopt2(
-          this.searchWindow,
-          this.vecpos,
-          this.updatePosition,
-          this.vecProbs,
-          vpsum,
-          opj0,
-          opj1,
-          scaling
-        );
-
-        // for debugging
-        // var debugMatrixMV = gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1);
-
-        // evaluate here whether to increase/decrease stepSize
-        /*if (vpsum >= prevCostFunc[j]) {
-          learningRate[j] *= stepParameter;
-        } else {
-          learningRate[j] = 1.0;
-        }
-        prevCostFunc[j] = vpsum;*/
-
-        // compute mean shift vectors
-        // extrapolate meanshiftvectors
-        /*var msv = [];
-        msv[0] = learningRate[j]*(vecpos[0] - currentPositions[j][0]);
-        msv[1] = learningRate[j]*(vecpos[1] - currentPositions[j][1]);
-        meanshiftVectors[j] = msv;*/
-        meanshiftVectors[j] = [
-          this.vecpos[0] - this.currentPositions[j][0],
-          this.vecpos[1] - this.currentPositions[j][1]
-        ];
-
-        // if (isNaN(msv[0]) || isNaN(msv[1])) debugger;
-
-        // for debugging
-        // debugMVs[j] = debugMatrixMV;
-        //
-      }
+      const meanshiftVectors = this._getMeanshiftVectors(scaling, i);
 
       // draw meanshiftVector
       /*sketchCC.clearRect(0, 0, sketchW, sketchH);
@@ -728,9 +671,8 @@ export default class Tracker extends EventEmitter {
       }
 
       // clipping of parameters if they're too high
-      var clip;
       for (let k = 0; k < this.numParameters; k++) {
-        clip = Math.abs(3 * Math.sqrt(this.eigenValues[k]));
+        const clip = Math.abs(3 * Math.sqrt(this.eigenValues[k]));
         if (Math.abs(this.currentParameters[k + 4]) > clip) {
           if (this.currentParameters[k + 4] > 0) {
             this.currentParameters[k + 4] = clip;
@@ -764,36 +706,102 @@ export default class Tracker extends EventEmitter {
     if (this.params.constantVelocity) {
       // add current parameter to array of previous parameters
       this.previousParameters.push(this.currentParameters.slice());
-      this.previousParameters.splice(0, this.previousParameters.length === 3 ? 1 : 0);
+      if (this.previousParameters.length === 3) {
+        this.previousParameters.shift();
+      }
     }
 
     // store positions, for checking convergence
-    this.previousPositions.splice(0, this.previousPositions.length === 10 ? 1 : 0);
+    if (this.previousPositions.length === 10) {
+      this.previousPositions.shift();
+    }
     this.previousPositions.push(this.currentPositions.slice(0));
 
     // send an event on each iteration
     this.emit('iteration');
 
-    if (this.getConvergence() < this.convergenceThreshold) {
-      // we must get a score before we can say we've converged
-      if (this.scoringHistory.length >= 5) {
-        if (this.params.stopOnConvergence) {
-          this.stop();
-        }
-
-        this.emit('converged');
+    // we must get a score before we can say we've converged
+    if (
+      this.scoringHistory.length >= 5 &&
+      this.getConvergence() < this.convergenceThreshold
+    ) {
+      if (this.params.stopOnConvergence) {
+        this.stop();
       }
+      this.emit('converged');
     }
 
     // return new points
     return this.currentPositions;
   }
 
+  _getMeanshiftVectors (scaling, varianceIndex) {
+    const originalPositions = this.currentPositions;
+    const meanshiftVectors = this._meanshiftVectors;
+
+    for (let j = 0; j < this.numPatches; j++) {
+      const opj0 = originalPositions[j][0] - ((this.searchWindow - 1) * scaling / 2);
+      const opj1 = originalPositions[j][1] - ((this.searchWindow - 1) * scaling / 2);
+
+      // calculate PI x gaussians
+      const vpsum = gpopt(
+        this.searchWindow,
+        originalPositions[j],
+        this.updatePosition,
+        this.vecProbs,
+        this.responses,
+        opj0,
+        opj1,
+        j,
+        this.varianceSeq[varianceIndex],
+        scaling
+      );
+
+      // calculate meanshift-vector
+      gpopt2(
+        this.searchWindow,
+        this.vecpos,
+        this.updatePosition,
+        this.vecProbs,
+        vpsum,
+        opj0,
+        opj1,
+        scaling
+      );
+
+      // for debugging
+      // var debugMatrixMV = gpopt2(searchWindow, vecpos, updatePosition, vecProbs, vpsum, opj0, opj1);
+
+      // evaluate here whether to increase/decrease stepSize
+      /*if (vpsum >= prevCostFunc[j]) {
+        learningRate[j] *= stepParameter;
+      } else {
+        learningRate[j] = 1.0;
+      }
+      prevCostFunc[j] = vpsum;*/
+
+      // compute mean shift vectors
+      // extrapolate meanshiftvectors
+      /*var msv = [];
+      msv[0] = learningRate[j]*(vecpos[0] - currentPositions[j][0]);
+      msv[1] = learningRate[j]*(vecpos[1] - currentPositions[j][1]);
+      meanshiftVectors[j] = msv;*/
+
+      meanshiftVectors[j][0] = this.vecpos[0] - originalPositions[j][0];
+      meanshiftVectors[j][1] = this.vecpos[1] - originalPositions[j][1];
+
+      // for debugging
+      // debugMVs[j] = debugMatrixMV;
+    }
+
+    return meanshiftVectors;
+  }
+
   _resetParameters () {
     this.first = true;
     this.scoringHistory = [];
     this.previousParameters = [];
-    for (let i = 0; i < this.currentParameters.length; i++) {
+    for (let i = 0, l = this.currentParameters.length; i < l; i++) {
       this.currentParameters[i] = 0;
     }
   }
@@ -981,13 +989,15 @@ export default class Tracker extends EventEmitter {
         responses[i] = this._getWebGLResponsesType(this.responseList[i], patches);
       }
       const blendedResponses = [];
+      const searchWindowSize = this.searchWindow * this.searchWindow;
       for (let i = 0; i < this.numPatches; i++) {
-        const response = Array(this.searchWindow * this.searchWindow);
-        for (let k = 0; k < this.searchWindow * this.searchWindow; k++) {
+        const response = Array(searchWindowSize);
+        for (let k = searchWindowSize - 1; k >= 0; k--) {
           response[k] = 0;
         }
+
         for (let j = 0; j < this.responseList.length; j++) {
-          for (let k = 0; k < this.searchWindow * this.searchWindow; k++) {
+          for (let k = 0; k < searchWindowSize; k++) {
             response[k] += (responses[j][i][k] / this.responseList.length);
           }
         }
@@ -1154,8 +1164,8 @@ export default class Tracker extends EventEmitter {
       score = 1 / (1 + Math.exp(-score));
 
       // Keep length === 5
-      if (this.scoringHistory.length >= 5) {
-        this.scoringHistory.splice(0, this.scoringHistory.length - 4);
+      if (this.scoringHistory.length === 5) {
+        this.scoringHistory.shift();
       }
       this.scoringHistory.push(score);
 
