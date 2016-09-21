@@ -105,10 +105,10 @@ export default class ThreeDeformer extends Deformer {
     const texture = new Texture(srcElement);
     texture.minFilter = LinearFilter;
     const maskMaterial = this.maskMesh.material;
-    // maskMaterial.map = texture;
+    maskMaterial.map = texture;
     // Un-set the defaults
-    // maskMaterial.wireframe = false;
-    // maskMaterial.color.set(0xffffff);
+    maskMaterial.wireframe = false;
+    maskMaterial.color.set(0xffffff);
     return;
   }
 
@@ -117,8 +117,16 @@ export default class ThreeDeformer extends Deformer {
 
     const geom = this.maskMesh.geometry;
     geom.faceVertexUvs = [[]];
+    const faceVertexUvs = geom.faceVertexUvs[0];
+    geom.faces = [];
+    geom.vertices = [];
+
     for (let i = 0; i < this._maskTextureCoord.length; i += 6) {
       const vertIndex = Math.floor(i / 6 * 3);
+      // Standin verts
+      geom.vertices[vertIndex] = new Vector3();
+      geom.vertices[vertIndex + 1] = new Vector3();
+      geom.vertices[vertIndex + 2] = new Vector3();
       // Add a face
       geom.faces.push(new Face3(
         vertIndex,
@@ -126,16 +134,15 @@ export default class ThreeDeformer extends Deformer {
         vertIndex + 2
       ));
       // Texture it
-      geom.faceVertexUvs[0].push([
+      faceVertexUvs.push([
         new Vector2(this._maskTextureCoord[i], this._maskTextureCoord[i + 1]),
         new Vector2(this._maskTextureCoord[i + 2], this._maskTextureCoord[i + 3]),
         new Vector2(this._maskTextureCoord[i + 4], this._maskTextureCoord[i + 5])
       ]);
-
-      // geom.faceUvs[0].push(new Vector2(0, 1));
     }
 
     geom.uvsNeedUpdate = true;
+    geom.elementsNeedUpdate = true;
   }
 
   private updateMaskGeom (points: number[][]): void {
@@ -150,24 +157,21 @@ export default class ThreeDeformer extends Deformer {
 
     for (let i = 0; i < maskVertices.length; i += 6) {
       const vertIndex = Math.floor(i / 6 * 3);
-      geom.vertices[vertIndex] = new Vector3(
-        (maskVertices[i] * this.bgScaleX) + offsetX,
-        (bgH - (maskVertices[i + 1] * this.bgScaleY)) + offsetY,
-        0
-      );
-      geom.vertices[vertIndex + 1] = new Vector3(
-        (maskVertices[i + 2] * this.bgScaleX) + offsetX,
-        (bgH - (maskVertices[i + 3] * this.bgScaleY)) + offsetY,
-        0
-      );
-      geom.vertices[vertIndex + 2] = new Vector3(
-        (maskVertices[i + 4] * this.bgScaleX) + offsetX,
-        (bgH - (maskVertices[i + 5] * this.bgScaleY)) + offsetY,
-        0
-      );
+
+      const v1 = geom.vertices[vertIndex];
+      v1.x = (maskVertices[i] * this.bgScaleX) + offsetX;
+      v1.y = (bgH - (maskVertices[i + 1] * this.bgScaleY)) + offsetY;
+
+      const v2 = geom.vertices[vertIndex + 1];
+      v2.x = (maskVertices[i + 2] * this.bgScaleX) + offsetX;
+      v2.y = (bgH - (maskVertices[i + 3] * this.bgScaleY)) + offsetY;
+
+      const v3 = geom.vertices[vertIndex + 2];
+      v3.x = (maskVertices[i + 4] * this.bgScaleX) + offsetX;
+      v3.y = (bgH - (maskVertices[i + 5] * this.bgScaleY)) + offsetY;
     }
 
-    geom.elementsNeedUpdate = true;
+    geom.verticesNeedUpdate = true;
   }
 
   public draw (points: number[][]): void {
