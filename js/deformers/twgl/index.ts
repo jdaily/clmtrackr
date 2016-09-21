@@ -8,8 +8,31 @@ import Background from './Background';
 import createDeformVert from './shaders/deform.vert';
 import createDeformFrag from './shaders/deform.frag';
 
+import IDeformer from '../IDeformer';
 
-export default class Deformer {
+
+export default class Deformer implements IDeformer {
+  private _isLoaded: boolean;
+
+  private background: Background;
+  private debug: Background;
+
+  private _tracker;
+  private _gl;
+
+  private _verticeMap;
+
+  private _dynamicMaskTexture;
+  private _maskTextureSrcElement;
+  private _maskTextureCanvas;
+  private _pointBB;
+
+  private _maskTextureCoord;
+  private _maskProgramInfo;
+  private _maskTextures;
+  private _maskUniforms;
+  private _maskBufferInfo;
+
   constructor (params = {}) {
     twgl.setDefaults({ attribPrefix: 'a_' });
 
@@ -32,6 +55,7 @@ export default class Deformer {
     this._maskProgramInfo = null;
     this._maskTextures = null;
     this._maskUniforms = null;
+    this._maskBufferInfo = null;
   }
 
   getGLContext () {

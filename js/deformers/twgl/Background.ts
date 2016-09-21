@@ -3,8 +3,19 @@ import twgl from 'twgl.js/dist/twgl';
 import createBgVert from './shaders/background.vert';
 import createBgFrag from './shaders/background.frag';
 
+import IDeformer from '../IDeformer';
+
 
 export default class Background {
+  private _deformer: IDeformer;
+
+  private _element;
+
+  private _bgBufferInfo;
+  private _bgProgramInfo;
+  private _bgTextures;
+  private _bgUniforms;
+
   constructor (deformer) {
     this._deformer = deformer;
 
