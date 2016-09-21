@@ -1,3 +1,5 @@
+import { EventEmitter } from 'events';
+
 import { getWebGLContext } from 'clmtrackr/js/utils/webgl';
 import {
   getBoundingBox,
@@ -6,7 +8,7 @@ import {
 import { getImageData } from 'clmtrackr/js/utils/image';
 
 
-abstract class Deformer {
+abstract class Deformer extends EventEmitter {
   protected _gl: WebGLRenderingContext;
 
   protected _tracker;
@@ -26,6 +28,8 @@ abstract class Deformer {
 
 
   constructor () {
+    super();
+
     this._dynamicMaskTexture = false;
     this._maskTextureSrcElement = null;
     this._maskTextureCanvas = document.createElement('canvas');
@@ -74,7 +78,7 @@ abstract class Deformer {
     this._pointBB = getBoundingBox(points);
 
     // correct points
-    let nupoints = points.map(p => [
+    const nupoints = points.map(p => [
       p[0] - this._pointBB.minX,
       p[1] - this._pointBB.minY
     ]);
@@ -97,6 +101,8 @@ abstract class Deformer {
     ) {
       return null;
     }
+
+    this.emit('maskReady');
 
     if (!this._dynamicMaskTexture) {
       // Draw the srcElement to the mask texture canvas
