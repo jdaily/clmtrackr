@@ -9,7 +9,7 @@ import IDeformer from '../IDeformer';
 export default class Background {
   private _deformer: IDeformer;
 
-  private _element;
+  private _element: HTMLElement;
 
   private _bgBufferInfo;
   private _bgProgramInfo;
@@ -30,7 +30,7 @@ export default class Background {
   /**
    * @param {*} element - This will be the source for the background
    */
-  setElement (element) {
+  public setElement (element): void {
     this._element = element;
     if (!this._element) {
       this._bgBufferInfo = null;
@@ -67,7 +67,7 @@ export default class Background {
     };
   }
 
-  draw () {
+  public draw (): void {
     if (!this._element) { return; }
 
     const gl = this._deformer.getGLContext();

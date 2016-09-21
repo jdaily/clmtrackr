@@ -28,3 +28,17 @@ export const getBoundingBox = (points) => {
     height: maxY - minY
   };
 };
+
+
+export const generateTextureVertices = (points, vertMap, scaleX = 1, scaleY = 1) => {
+  const tvs = [];
+  for (let i = 0; i < vertMap.length; i++) {
+    tvs.push(points[vertMap[i][0]][0] * scaleX);
+    tvs.push(points[vertMap[i][0]][1] * scaleY);
+    tvs.push(points[vertMap[i][1]][0] * scaleX);
+    tvs.push(points[vertMap[i][1]][1] * scaleY);
+    tvs.push(points[vertMap[i][2]][0] * scaleX);
+    tvs.push(points[vertMap[i][2]][1] * scaleY);
+  }
+  return tvs;
+};

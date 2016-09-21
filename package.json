@@ -43,6 +43,7 @@
   "dependencies": {
     "classnames": "^2.2.5",
     "jsfeat": "git+https://github.com/inspirit/jsfeat#f584f93c78b5085ef141eb1dc66d9d06a7123ec3",
+    "jsio-event-kit": "git+https://github.com/jsio-private/event-kit.git",
     "lodash": "^4.15.0",
     "material-design-color": "^2.3.1",
     "material-ui": "^0.15.4",
