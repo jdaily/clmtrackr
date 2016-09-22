@@ -22,7 +22,8 @@ const config = {
     alias: {
       'clmtrackr': path.resolve(__dirname),
       'stats.js': path.resolve(__dirname, 'lib', 'stats.js')
-    }
+    },
+    extensions: ['', '.webpack.js', '.web.js', '.ts', '.tsx', '.js', '.vert', '.frag', '.glsl']
   },
   module: {
     loaders: [
@@ -33,6 +34,11 @@ const config = {
       {
         test: /\.worker\.js$/,
         loader: 'worker-loader?inline=true'
+      },
+      {
+        test: /\.tsx?$/,
+        exclude: /node_modules/,
+        loader: 'babel-loader?presets[]=es2015&presets[]=react!ts-loader?ignoreDiagnostics[]=2307'
       },
       {
         test: /\.js$/,

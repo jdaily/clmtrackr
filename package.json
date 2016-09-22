@@ -4,10 +4,10 @@
   "description": "Javascript library for precise tracking of facial features via Constrained Local Models",
   "scripts": {
     "build": "NODE_ENV=production webpack --optimize-minimize --optimize-dedupe",
-    "watch": "webpack --debug --devtool inline-source-map --output-pathinfo --progress --colors --watch",
-    "serve": "webpack-dev-server --debug --devtool inline-source-map --output-pathinfo --inline --hot --host localhost",
+    "watch": "webpack --debug --devtool eval-source-map --output-pathinfo --progress --colors --watch",
+    "serve": "webpack-dev-server --debug --devtool eval-source-map --output-pathinfo --inline --hot --host localhost",
     "clean": "rm -rf dist",
-    "postinstall": "npm run build",
+    "postinstall": "typings install && npm run build",
     "publish": "./publish.sh",
     "generateModelJsons": "node ./generateModelJsons.js"
   },
@@ -26,13 +26,16 @@
     "filesaver.js": "andyinabox/FileSaver.js",
     "getusermedia": "^1.3.5",
     "gh-pages": "^0.11.0",
-    "glsl-template-loader": "git+https://github.com/jsio-private/glsl-template-loader#ac20d0e2d88d2e231d2ea4c271e56205b8ea437f",
+    "glsl-template-loader": "git+https://github.com/jsio-private/glsl-template-loader#0c1b2cbaa6b1020de78527b37dcd2ce51a5e89bc",
     "html-webpack-plugin": "^2.22.0",
     "json-loader": "^0.5.4",
     "raf": "^3.1.0",
     "stylus": "^0.54.5",
     "stylus-loader": "^2.3.1",
+    "ts-loader": "^0.8.2",
     "twgl.js": "^1.9.0",
+    "typescript": "^1.8.10",
+    "typings": "^1.3.3",
     "uglify": "^0.1.5",
     "webpack": "^1.13.2",
     "webpack-dev-server": "^1.15.1",
@@ -41,6 +44,7 @@
   "dependencies": {
     "classnames": "^2.2.5",
     "jsfeat": "git+https://github.com/inspirit/jsfeat#f584f93c78b5085ef141eb1dc66d9d06a7123ec3",
+    "jsio-event-kit": "git+https://github.com/jsio-private/event-kit.git",
     "lodash": "^4.15.0",
     "material-design-color": "^2.3.1",
     "material-ui": "^0.15.4",
@@ -52,6 +56,7 @@
     "react-redux": "^4.4.5",
     "react-tap-event-plugin": "^1.0.0",
     "redux": "^3.6.0",
-    "redux-logger": "^2.6.1"
+    "redux-logger": "^2.6.1",
+    "three": "^0.81.0"
   }
 }

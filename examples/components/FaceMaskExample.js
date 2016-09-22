@@ -1,5 +1,6 @@
 import React from 'react';
 import _ from 'lodash';
+import { disposableEvent } from 'jsio-event-kit';
 
 import DropDownMenu from 'material-ui/DropDownMenu';
 import MenuItem from 'material-ui/MenuItem';
@@ -72,15 +73,15 @@ export default class FaceMaskExample extends VideoExample {
     // draw face deformation model
     const tracker = this.state.tracker;
     const deformer = this.state.deformer;
-    deformer.load(
-      video,
-      tracker.getCurrentPosition(),
-      tracker,
-      video
-    );
+    deformer.setTracker(tracker);
+    deformer.setMaskTexture(video);
+    deformer.setBackground(video);
 
-    // hide video and score
-    this.setState({ hideMedia: true, showScore: false });
+    const disposable = disposableEvent(tracker, 'converged', () => {
+      // hide video and score
+      this.setState({ hideMedia: true, showScore: false });
+      disposable.dispose();
+    });
   }
 
   _drawGridLoop () {
