@@ -2,23 +2,22 @@ import {
   WebGLRenderer,
   Scene,
   PerspectiveCamera,
-  BoxGeometry,
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
-  Geometry,
-  Vector3,
-  Face3,
-  ShapeUtils,
-  Vector2,
   Texture,
   LinearFilter,
-  Color,
-  DoubleSide
+  DoubleSide,
+  ShaderMaterial,
+  BufferGeometry,
+  BufferAttribute
 } from 'three';
 
 import { generateTextureVertices } from 'clmtrackr/js/utils/points';
 import Deformer from '../Deformer';
+
+import createMaskVS from './shaders/mask.vert';
+import createMaskFS from './shaders/mask.frag';
 
 
 const RAD_TO_DEG = 180 / Math.PI;
@@ -75,10 +74,13 @@ export default class ThreeDeformer extends Deformer {
     this.bgScaleY = bgGeom.parameters.height / canvas.height;
 
     // Mask the mask geometry
-    const maskGeom = new Geometry();
-    const maskMat = new MeshBasicMaterial({
-      color: 0xff0000,
-      wireframe: true
+    const maskGeom = new BufferGeometry();
+    const maskMat = new ShaderMaterial({
+      uniforms: {
+        texture: { value: null }
+      },
+      vertexShader: createMaskVS(),
+      fragmentShader: createMaskFS()
     });
 
     this.maskMesh = new Mesh(maskGeom, maskMat);
@@ -112,7 +114,12 @@ export default class ThreeDeformer extends Deformer {
     maskMaterial.side = DoubleSide;
     // Un-set the defaults
     maskMaterial.wireframe = false;
-    maskMaterial.color.set(0xffffff);
+
+    // Update the shader uniform
+    const uTexture = maskMaterial.uniforms.texture;
+    uTexture.value = texture;
+    uTexture.needsUpdate = true;
+
     return;
   }
 
@@ -120,71 +127,48 @@ export default class ThreeDeformer extends Deformer {
     super.setPoints(points);
 
     const geom = this.maskMesh.geometry;
-    geom.faceVertexUvs = [[]];
-    const faceVertexUvs = geom.faceVertexUvs[0];
-    geom.faces = [];
-    geom.vertices = [];
 
-    for (let i = 0; i < this._maskTextureCoord.length; i += 6) {
-      const vertIndex = Math.floor(i / 6 * 3);
-      // Standin verts
-      geom.vertices[vertIndex] = new Vector3(0, 0, 1);
-      geom.vertices[vertIndex + 1] = new Vector3(0, 0, 1);
-      geom.vertices[vertIndex + 2] = new Vector3(0, 0, 1);
-      // Add a face
-      geom.faces.push(new Face3(
-        vertIndex,
-        vertIndex + 1,
-        vertIndex + 2
-      ));
-      // Texture it
-      faceVertexUvs.push([
-        new Vector2(
-          this._maskTextureCoord[i],
-          1 - this._maskTextureCoord[i + 1]
-        ),
-        new Vector2(
-          this._maskTextureCoord[i + 2],
-          1 - this._maskTextureCoord[i + 3]
-        ),
-        new Vector2(
-          this._maskTextureCoord[i + 4],
-          1 - this._maskTextureCoord[i + 5]
-        )
-      ]);
+    const faceCount = Math.floor(this._maskTextureCoord.length / 6 * 3)
+    // Initialize the verts
+    geom.addAttribute(
+      'position',
+      new BufferAttribute(new Float32Array(faceCount * 3), 3)
+    );
+
+    // Initialize the UVs
+    const faceVertexUvs = new Float32Array(faceCount * 3);
+    for (let i = 0; i < this._maskTextureCoord.length; i += 2) {
+      faceVertexUvs[i] = this._maskTextureCoord[i];
+      faceVertexUvs[i + 1] = 1 - this._maskTextureCoord[i + 1];
     }
 
-    geom.uvsNeedUpdate = true;
-    geom.elementsNeedUpdate = true;
+    geom.addAttribute(
+      'uv',
+      new BufferAttribute(faceVertexUvs, 2)
+    );
+    geom.attributes.uv.needsUpdate = true;
   }
 
   private updateMaskGeom (points: number[][]): void {
     const maskVertices = generateTextureVertices(points, this._verticeMap);
 
     const geom = this.maskMesh.geometry;
+    const position = geom.attributes.position;
 
     const bgW = this.bgMesh.geometry.parameters.width;
     const bgH = this.bgMesh.geometry.parameters.height;
     const offsetX = bgW * -0.5;
     const offsetY = bgH * -0.5;
 
-    for (let i = 0; i < maskVertices.length; i += 6) {
-      const vertIndex = Math.floor(i / 6 * 3);
-
-      const v1 = geom.vertices[vertIndex];
-      v1.x = (maskVertices[i] * this.bgScaleX) + offsetX;
-      v1.y = (bgH - (maskVertices[i + 1] * this.bgScaleY)) + offsetY;
-
-      const v2 = geom.vertices[vertIndex + 1];
-      v2.x = (maskVertices[i + 2] * this.bgScaleX) + offsetX;
-      v2.y = (bgH - (maskVertices[i + 3] * this.bgScaleY)) + offsetY;
-
-      const v3 = geom.vertices[vertIndex + 2];
-      v3.x = (maskVertices[i + 4] * this.bgScaleX) + offsetX;
-      v3.y = (bgH - (maskVertices[i + 5] * this.bgScaleY)) + offsetY;
+    const verts = position.array;
+    let vertIndex = 0;
+    for (let i = 0; i < maskVertices.length; i += 2) {
+      verts[vertIndex++] = (maskVertices[i] * this.bgScaleX) + offsetX;
+      verts[vertIndex++] = (bgH - (maskVertices[i + 1] * this.bgScaleY)) + offsetY;
+      verts[vertIndex++] = 1;
     }
 
-    geom.verticesNeedUpdate = true;
+    position.needsUpdate = true;
   }
 
   public draw (points: number[][]): void {

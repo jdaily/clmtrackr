@@ -31,14 +31,15 @@ export const getBoundingBox = (points) => {
 
 
 export const generateTextureVertices = (points, vertMap, scaleX = 1, scaleY = 1) => {
-  const tvs = [];
+  const tvs = new Float32Array(vertMap.length * 6);
   for (let i = 0; i < vertMap.length; i++) {
-    tvs.push(points[vertMap[i][0]][0] * scaleX);
-    tvs.push(points[vertMap[i][0]][1] * scaleY);
-    tvs.push(points[vertMap[i][1]][0] * scaleX);
-    tvs.push(points[vertMap[i][1]][1] * scaleY);
-    tvs.push(points[vertMap[i][2]][0] * scaleX);
-    tvs.push(points[vertMap[i][2]][1] * scaleY);
+    const j = i * 6;
+    tvs[j] = points[vertMap[i][0]][0] * scaleX;
+    tvs[j + 1] = points[vertMap[i][0]][1] * scaleY;
+    tvs[j + 2] = points[vertMap[i][1]][0] * scaleX;
+    tvs[j + 3] = points[vertMap[i][1]][1] * scaleY;
+    tvs[j + 4] = points[vertMap[i][2]][0] * scaleX;
+    tvs[j + 5] = points[vertMap[i][2]][1] * scaleY;
   }
   return tvs;
 };
