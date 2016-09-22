@@ -26,7 +26,7 @@
     "filesaver.js": "andyinabox/FileSaver.js",
     "getusermedia": "^1.3.5",
     "gh-pages": "^0.11.0",
-    "glsl-template-loader": "git+https://github.com/jsio-private/glsl-template-loader#ac20d0e2d88d2e231d2ea4c271e56205b8ea437f",
+    "glsl-template-loader": "git+https://github.com/jsio-private/glsl-template-loader#0c1b2cbaa6b1020de78527b37dcd2ce51a5e89bc",
     "html-webpack-plugin": "^2.22.0",
     "json-loader": "^0.5.4",
     "raf": "^3.1.0",

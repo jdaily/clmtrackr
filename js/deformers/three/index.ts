@@ -7,10 +7,12 @@ import {
   PlaneGeometry,
   Texture,
   LinearFilter,
+  NearestFilter,
   DoubleSide,
   ShaderMaterial,
   BufferGeometry,
-  BufferAttribute
+  BufferAttribute,
+  WebGLRenderTarget
 } from 'three';
 
 import { generateTextureVertices } from 'clmtrackr/js/utils/points';
@@ -27,6 +29,7 @@ const DEG_TO_RAD = Math.PI / 180;
 export default class ThreeDeformer extends Deformer {
 
   private scene: Scene;
+
   private camera: PerspectiveCamera;
 
   private renderer: WebGLRenderer;
@@ -45,10 +48,15 @@ export default class ThreeDeformer extends Deformer {
   public init (canvas: HTMLCanvasElement): void {
     super.init(canvas);
 
-    this.renderer = new WebGLRenderer({ canvas });
+    this.renderer = new WebGLRenderer({
+      canvas,
+      preserveDrawingBuffer: true
+    });
+    this.renderer.autoClear = false;
     this.renderer.setSize(canvas.width, canvas.height);
 
     this.scene = new Scene();
+
     this.camera = new PerspectiveCamera(
       75,
       canvas.width / canvas.height,
@@ -77,7 +85,10 @@ export default class ThreeDeformer extends Deformer {
     const maskGeom = new BufferGeometry();
     const maskMat = new ShaderMaterial({
       uniforms: {
-        texture: { value: null }
+        texture: { value: null },
+        bgTexture: { value: null },
+        bgWidth: { value: canvas.width },
+        bgHeight: { value: canvas.height }
       },
       vertexShader: createMaskVS(),
       fragmentShader: createMaskFS()
@@ -96,6 +107,11 @@ export default class ThreeDeformer extends Deformer {
     texture.minFilter = LinearFilter;
     const bgMaterial = this.bgMesh.material;
     bgMaterial.map = texture;
+
+    const maskBgTexture = this.maskMesh.material.uniforms.bgTexture;
+    maskBgTexture.value = texture;
+    maskBgTexture.needsUpdate = true;
+
     // Un-set the defaults
     bgMaterial.wireframe = false;
     bgMaterial.color.set(0xffffff);
@@ -181,6 +197,7 @@ export default class ThreeDeformer extends Deformer {
     const bgTex = this.bgMesh.material.map;
     if (bgTex) {
       bgTex.needsUpdate = true;
+      this.maskMesh.material.uniforms.bgTexture.needsUpdate = true;
     }
 
     this.renderer.render(this.scene, this.camera);

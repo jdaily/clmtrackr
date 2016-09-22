@@ -23,7 +23,7 @@ const config = {
       'clmtrackr': path.resolve(__dirname),
       'stats.js': path.resolve(__dirname, 'lib', 'stats.js')
     },
-    extensions: ['', '.webpack.js', '.web.js', '.ts', '.tsx', '.js']
+    extensions: ['', '.webpack.js', '.web.js', '.ts', '.tsx', '.js', '.vert', '.frag', '.glsl']
   },
   module: {
     loaders: [
