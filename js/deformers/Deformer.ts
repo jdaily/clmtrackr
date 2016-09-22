@@ -77,13 +77,13 @@ abstract class Deformer extends EventEmitter {
     // Find texture cropping from mask points
     this._pointBB = getBoundingBox(points);
 
-    // correct points
+    // offset points by bounding box
     const nupoints = points.map(p => [
       p[0] - this._pointBB.minX,
       p[1] - this._pointBB.minY
     ]);
 
-    // create vertices based on points
+    // create UVs based on map points
     this._maskTextureCoord = generateTextureVertices(
       nupoints,
       this._verticeMap,

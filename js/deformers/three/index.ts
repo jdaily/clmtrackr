@@ -13,7 +13,8 @@ import {
   Vector2,
   Texture,
   LinearFilter,
-  Color
+  Color,
+  DoubleSide
 } from 'three';
 
 import { generateTextureVertices } from 'clmtrackr/js/utils/points';
@@ -104,8 +105,11 @@ export default class ThreeDeformer extends Deformer {
     // Update mask texture
     const texture = new Texture(srcElement);
     texture.minFilter = LinearFilter;
+    texture.needsUpdate = true;
+
     const maskMaterial = this.maskMesh.material;
     maskMaterial.map = texture;
+    maskMaterial.side = DoubleSide;
     // Un-set the defaults
     maskMaterial.wireframe = false;
     maskMaterial.color.set(0xffffff);
@@ -124,9 +128,9 @@ export default class ThreeDeformer extends Deformer {
     for (let i = 0; i < this._maskTextureCoord.length; i += 6) {
       const vertIndex = Math.floor(i / 6 * 3);
       // Standin verts
-      geom.vertices[vertIndex] = new Vector3();
-      geom.vertices[vertIndex + 1] = new Vector3();
-      geom.vertices[vertIndex + 2] = new Vector3();
+      geom.vertices[vertIndex] = new Vector3(0, 0, 1);
+      geom.vertices[vertIndex + 1] = new Vector3(0, 0, 1);
+      geom.vertices[vertIndex + 2] = new Vector3(0, 0, 1);
       // Add a face
       geom.faces.push(new Face3(
         vertIndex,
@@ -135,9 +139,18 @@ export default class ThreeDeformer extends Deformer {
       ));
       // Texture it
       faceVertexUvs.push([
-        new Vector2(this._maskTextureCoord[i], this._maskTextureCoord[i + 1]),
-        new Vector2(this._maskTextureCoord[i + 2], this._maskTextureCoord[i + 3]),
-        new Vector2(this._maskTextureCoord[i + 4], this._maskTextureCoord[i + 5])
+        new Vector2(
+          this._maskTextureCoord[i],
+          1 - this._maskTextureCoord[i + 1]
+        ),
+        new Vector2(
+          this._maskTextureCoord[i + 2],
+          1 - this._maskTextureCoord[i + 3]
+        ),
+        new Vector2(
+          this._maskTextureCoord[i + 4],
+          1 - this._maskTextureCoord[i + 5]
+        )
       ]);
     }
 
