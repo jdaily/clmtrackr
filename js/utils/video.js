@@ -38,7 +38,8 @@ export const getUserMedia = (
   navigator.getUserMedia ||
   navigator.webkitGetUserMedia ||
   navigator.mozGetUserMedia ||
-  navigator.msGetUserMedia
+  navigator.msGetUserMedia ||
+  (() => { throw new Error('navigator.getUserMedia() is not supported') })
 ).bind(navigator);
 
 
